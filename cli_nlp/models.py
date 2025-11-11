@@ -1,7 +1,7 @@
 """Pydantic models for structured LLM responses."""
 
 from enum import Enum
-from typing import Optional
+from typing import List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -30,5 +30,32 @@ class CommandResponse(BaseModel):
     explanation: Optional[str] = Field(
         default=None,
         description="Brief explanation of what the command does (optional, for user understanding)."
+    )
+
+
+class MultiCommandResponse(BaseModel):
+    """Structured response containing multiple commands (chained or piped)."""
+    
+    commands: List[CommandResponse] = Field(
+        description="List of commands to execute in sequence"
+    )
+    
+    execution_type: str = Field(
+        default="sequence",
+        description="How to execute commands: 'sequence' (one after another), 'pipeline' (piped together), or 'parallel' (simultaneously)"
+    )
+    
+    combined_command: Optional[str] = Field(
+        default=None,
+        description="The combined command string (for pipelines or chained commands)"
+    )
+    
+    overall_safe: bool = Field(
+        description="True if all commands are safe (read-only). False if any command modifies the system."
+    )
+    
+    explanation: Optional[str] = Field(
+        default=None,
+        description="Brief explanation of the command sequence"
     )
 
