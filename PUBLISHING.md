@@ -1,6 +1,6 @@
 # Publishing Guide
 
-This document explains how to publish `cli-nlp` to PyPI.
+This document explains how to publish `lzy-cli` to PyPI.
 
 ## Prerequisites
 
@@ -61,7 +61,7 @@ This document explains how to publish `cli-nlp` to PyPI.
 poetry build
 
 # Test installation locally
-pip install dist/cli_nlp-*.whl
+pip install dist/lzy_cli-*.whl
 
 # Publish to PyPI (requires PYPI_API_TOKEN)
 poetry config pypi-token.pypi "your-token-here"
@@ -80,11 +80,11 @@ Follow [Semantic Versioning](https://semver.org/):
 After publishing, verify the package is available:
 
 ```bash
-pip install cli-nlp
-nlp --help
+pip install lzy-cli
+lzy --help
 ```
 
-Check PyPI: https://pypi.org/project/cli-nlp/
+Check PyPI: https://pypi.org/project/lzy-cli/
 
 ## Troubleshooting
 

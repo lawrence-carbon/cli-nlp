@@ -82,7 +82,7 @@ Examples:
             console.print("Please either:")
             console.print(f"  1. Add 'openai_api_key' to config file: {config_path}")
             console.print("  2. Set OPENAI_API_KEY environment variable")
-            console.print("  3. Run: nlp init-config")
+            console.print("  3. Run: lzy init-config")
             raise typer.Exit(1)
         
         return OpenAI(api_key=api_key)

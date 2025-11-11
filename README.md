@@ -1,4 +1,4 @@
-# CLI-NLP: Natural Language to Shell Command Converter
+# LZY: Natural Language to Shell Command Converter
 
 A command-line utility that converts natural language requests into shell commands using OpenAI's API.
 
@@ -18,13 +18,13 @@ A command-line utility that converts natural language requests into shell comman
 ### Install from PyPI (Recommended)
 
 ```bash
-pip install cli-nlp
+pip install lzy-cli
 ```
 
-After installation, you can use the `nlp` command directly:
+After installation, you can use the `lzy` command directly:
 
 ```bash
-nlp "list all python files in current directory"
+lzy "list all python files in current directory"
 ```
 
 ### Install from Source
@@ -49,12 +49,12 @@ nlp "list all python files in current directory"
 3. **Activate the Poetry shell and use the tool:**
    ```bash
    poetry shell
-   nlp "your query here"
+   lzy "your query here"
    ```
 
    Or run directly without activating the shell:
    ```bash
-   poetry run nlp "your query here"
+   poetry run lzy "your query here"
    ```
 
 ### Project Structure
@@ -78,8 +78,8 @@ cli-nlp/
 **Option A: Using config file (recommended):**
 ```bash
 # Create config file template
-nlp init-config
-# or: poetry run nlp init-config
+lzy init-config
+# or: poetry run lzy init-config
 
 # Edit the config file and add your API key
 # Location: ~/.config/cli-nlp/config.json
@@ -104,21 +104,21 @@ Note: The config file takes precedence over environment variables.
 ### Basic Usage
 
 ```bash
-nlp "list all python files in current directory"
+lzy "list all python files in current directory"
 # Output: find . -name "*.py"
 ```
 
 If using Poetry without installing globally:
 ```bash
-poetry run nlp "list all python files in current directory"
+poetry run lzy "list all python files in current directory"
 ```
 
 ### Interactive Mode with Tab Completion
 
-When you run `nlp` without a query, it enters interactive mode with tab completion enabled:
+When you run `lzy` without a query, it enters interactive mode with tab completion enabled:
 
 ```bash
-nlp
+lzy
 Query: list files in /home/user/Documents<TAB>
 ```
 
@@ -131,7 +131,7 @@ Query: list files in /home/user/Documents<TAB>
 **Examples:**
 ```bash
 # Interactive mode - press Tab to complete paths
-nlp
+lzy
 Query: find all python files in ~/projects<TAB>
 
 # Tab completion works for:
@@ -144,49 +144,49 @@ Query: find all python files in ~/projects<TAB>
 ### Execute Command Directly
 
 ```bash
-nlp "show disk usage" --execute
+lzy "show disk usage" --execute
 # Generates and executes: df -h
 ```
 
 ### Copy to Clipboard
 
 ```bash
-nlp "find files larger than 100MB" --copy
+lzy "find files larger than 100MB" --copy
 # Generates command and copies it to clipboard
 ```
 
 ### Use Different Model
 
 ```bash
-nlp "complex query" --model gpt-4o
+lzy "complex query" --model gpt-4o
 ```
 
 ### Combine Options
 
 ```bash
-nlp "kill process on port 3000" --execute --model gpt-4o-mini
+lzy "kill process on port 3000" --execute --model gpt-4o-mini
 ```
 
 ## Examples
 
 ```bash
 # File operations
-nlp "find all .txt files modified today"
-nlp "count lines in all python files"
-nlp "delete all .pyc files recursively"
+lzy "find all .txt files modified today"
+lzy "count lines in all python files"
+lzy "delete all .pyc files recursively"
 
 # System information
-nlp "show disk usage"
-nlp "list running processes"
-nlp "show network connections"
+lzy "show disk usage"
+lzy "list running processes"
+lzy "show network connections"
 
 # Git operations
-nlp "show git status"
-nlp "list all git branches"
+lzy "show git status"
+lzy "list all git branches"
 
 # Process management
-nlp "find process using port 8080"
-nlp "kill all python processes"
+lzy "find process using port 8080"
+lzy "kill all python processes"
 ```
 
 ## Configuration
@@ -207,8 +207,8 @@ The tool uses a JSON config file located at `~/.config/cli-nlp/config.json` (or 
 ### Creating Config File
 
 ```bash
-nlp init-config
-# or: poetry run nlp init-config
+lzy init-config
+# or: poetry run lzy init-config
 ```
 
 This creates a template config file that you can edit. The config file has restrictive permissions (600) to protect your API key.
@@ -244,15 +244,15 @@ The tool includes built-in safety checks to protect your system:
 
 ```bash
 # Safe command (read-only)
-nlp "list all python files"
+lzy "list all python files"
 # Shows: Generated Command (Safe - Read Only)
 
 # Modifying command (requires --force to execute)
-nlp "delete all .pyc files" --execute
+lzy "delete all .pyc files" --execute
 # Shows: ⚠️ Safety Check Failed: This command will modify your system!
 #        Use --force flag to execute modifying commands.
 
-nlp "delete all .pyc files" --execute --force
+lzy "delete all .pyc files" --execute --force
 # Executes the command after bypassing safety check
 ```
 

@@ -1,6 +1,6 @@
 [tool.poetry]
-name = "cli-nlp"
-version = "0.1.0"
+name = "lzy-cli"
+version = "0.1.1"
 description = "Natural Language to Shell Command Converter using OpenAI"
 authors = ["Lawrence <lawrence.carbon@gmail.com>"]
 readme = "README.md"
@@ -27,7 +27,7 @@ pydantic = "^2.0.0"
 prompt_toolkit = "^3.0.0"
 
 [tool.poetry.scripts]
-nlp = "cli_nlp.cli:cli"
+lzy = "cli_nlp.cli:cli"
 
 [build-system]
 requires = ["poetry-core"]
