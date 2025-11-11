@@ -1,0 +1,24 @@
+[tool.poetry]
+name = "cli-nlp"
+version = "0.1.0"
+description = "Natural Language to Shell Command Converter using OpenAI"
+authors = ["Lawrence <lawrence@example.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+openai = "^1.0.0"
+typer = {extras = ["all"], version = "^0.12.0"}
+
+[tool.poetry.scripts]
+nlp = "cli_nlp:cli"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.0.0"
+black = "^23.0.0"
+ruff = "^0.1.0"
+
