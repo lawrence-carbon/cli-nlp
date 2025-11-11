@@ -17,8 +17,8 @@ A command-line utility that converts natural language requests into shell comman
 
 ### Prerequisites
 
-- Python 3.7+
-- [Poetry](https://python-poetry.org/docs/#installation) (recommended) or pip
+- Python 3.12+
+- [Poetry](https://python-poetry.org/docs/#installation) (recommended)
 
 ### Install with Poetry (Recommended)
 
@@ -43,17 +43,21 @@ A command-line utility that converts natural language requests into shell comman
    poetry run nlp "your query here"
    ```
 
-### Install with pip (Alternative)
+### Project Structure
 
-1. **Install dependencies:**
-   ```bash
-   pip install openai typer[all]
-   ```
+The project is organized into a clean, maintainable structure:
 
-2. **Run the script directly:**
-   ```bash
-   python3 cli_nlp.py "your query here"
-   ```
+```
+cli-nlp/
+├── cli_nlp/
+│   ├── __init__.py          # Package initialization
+│   ├── cli.py               # Main CLI interface
+│   ├── config_manager.py    # Configuration management
+│   ├── command_runner.py    # Command generation and execution
+│   └── utils.py             # Utility functions
+├── pyproject.toml           # Poetry configuration
+└── README.md                # This file
+```
 
 ### Set up OpenAI API key
 
@@ -184,10 +188,20 @@ This creates a template config file that you can edit. The config file has restr
 
 ## Requirements
 
-- Python 3.7+
-- Poetry (recommended) or pip
+- Python 3.12+
+- Poetry (required for installation)
 - OpenAI API key
 - (Optional) xclip or xsel for clipboard functionality
+
+## Development
+
+The codebase is organized into modular classes:
+
+- **ConfigManager**: Handles configuration file operations (loading, saving, API key management)
+- **CommandRunner**: Handles command generation using OpenAI and command execution
+- **CLI**: Main interface using Typer for argument parsing and command routing
+
+This structure makes the code maintainable and easy to extend.
 
 ## Notes
 
