@@ -1,6 +1,6 @@
 # Publishing Guide
 
-This document explains how to publish `lzy-cli` to PyPI.
+This document explains how to publish `query-to-command` to PyPI.
 
 ## Prerequisites
 
@@ -61,7 +61,7 @@ This document explains how to publish `lzy-cli` to PyPI.
 poetry build
 
 # Test installation locally
-pip install dist/lzy_cli-*.whl
+pip install dist/query_to_command-*.whl
 
 # Publish to PyPI (requires PYPI_API_TOKEN)
 poetry config pypi-token.pypi "your-token-here"
@@ -80,11 +80,11 @@ Follow [Semantic Versioning](https://semver.org/):
 After publishing, verify the package is available:
 
 ```bash
-pip install lzy-cli
-lzy --help
+pip install query-to-command
+qtc --help
 ```
 
-Check PyPI: https://pypi.org/project/lzy-cli/
+Check PyPI: https://pypi.org/project/query-to-command/
 
 ## Troubleshooting
 

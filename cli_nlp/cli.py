@@ -13,7 +13,7 @@ from cli_nlp.utils import console, show_help
 
 # Initialize Typer app
 app = typer.Typer(
-    name="lzy",
+    name="qtc",
     help="Convert natural language to shell commands using OpenAI",
     add_completion=False,
     rich_markup_mode="rich",

@@ -6,12 +6,12 @@ console = Console()
 
 # Help text template (single source of truth)
 HELP_TEXT = """
-[bold]LZY: Natural Language to Shell Command Converter[/bold]
+[bold]QTC: Query to Command - Natural Language to Shell Command Converter[/bold]
 
 [bold]Usage:[/bold]
-    lzy [OPTIONS] <query>
-    lzy [OPTIONS]              (interactive mode with tab completion)
-    lzy <command> [ARGS]
+    qtc [OPTIONS] <query>
+    qtc [OPTIONS]              (interactive mode with tab completion)
+    qtc <command> [ARGS]
 
 [bold]Arguments:[/bold]
     query    Natural language description of the command you want
@@ -28,10 +28,10 @@ HELP_TEXT = """
     init-config            Create a default config file template
 
 [bold]Examples:[/bold]
-    lzy "list all python files in current directory"
-    lzy "show disk usage" --execute
-    lzy "find files modified in last 24 hours" --model gpt-4o
-    lzy init-config
+    qtc "list all python files in current directory"
+    qtc "show disk usage" --execute
+    qtc "find files modified in last 24 hours" --model gpt-4o
+    qtc init-config
 """
 
 
