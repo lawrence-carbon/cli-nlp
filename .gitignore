@@ -29,9 +29,14 @@ config.json
 ~/.config/cli-nlp/config.json
 
 # Poetry
-poetry.lock
+# poetry.lock  # Keep lock file for reproducible builds
 .venv/
 venv/
 .env
 .python-version
+
+# Build artifacts
+dist/
+build/
+*.egg-info/
 

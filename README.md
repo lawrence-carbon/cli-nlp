@@ -15,6 +15,20 @@ A command-line utility that converts natural language requests into shell comman
 
 ## Installation
 
+### Install from PyPI (Recommended)
+
+```bash
+pip install cli-nlp
+```
+
+After installation, you can use the `nlp` command directly:
+
+```bash
+nlp "list all python files in current directory"
+```
+
+### Install from Source
+
 ### Prerequisites
 
 - Python 3.12+
