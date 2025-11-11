@@ -1,11 +1,13 @@
 """Main CLI interface for CLI-NLP."""
 
+import os
 import sys
 from typing import List, Optional, Tuple
 
 import typer
 
 from cli_nlp.command_runner import CommandRunner
+from cli_nlp.completer import QueryCompleter
 from cli_nlp.config_manager import ConfigManager
 from cli_nlp.utils import console, show_help
 
@@ -61,6 +63,45 @@ def parse_arguments(args: List[str]) -> Tuple[List[str], bool, bool, Optional[st
     return query_parts, execute, copy, model, force
 
 
+def _interactive_query() -> str:
+    """Interactive query input with tab completion using prompt_toolkit."""
+    try:
+        from prompt_toolkit import PromptSession
+        from prompt_toolkit.history import FileHistory
+        from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
+        from prompt_toolkit.key_binding import KeyBindings
+        
+        # Setup history file
+        history_file = os.path.expanduser("~/.cli_nlp_history")
+        os.makedirs(os.path.dirname(history_file), exist_ok=True)
+        
+        # Create key bindings for better UX
+        kb = KeyBindings()
+        
+        # Create session with history and completion
+        session = PromptSession(
+            history=FileHistory(history_file),
+            completer=QueryCompleter(),
+            complete_while_typing=True,
+            auto_suggest=AutoSuggestFromHistory(),
+            enable_open_in_editor=True,
+            key_bindings=kb,
+        )
+        
+        query = session.prompt("Query: ")
+        return query.strip()
+    except ImportError:
+        # Fallback if prompt_toolkit is not available
+        console.print("[yellow]Warning: prompt_toolkit not available. Install it with: poetry install[/yellow]")
+        try:
+            query = input("Query: ")
+            return query.strip()
+        except (EOFError, KeyboardInterrupt):
+            return ""
+    except (EOFError, KeyboardInterrupt):
+        return ""
+
+
 def find_first_non_option(args: List[str]) -> Optional[str]:
     """Find the first non-option argument."""
     i = 0
@@ -93,10 +134,14 @@ def main_callback(ctx: typer.Context):
     query_parts, execute, copy, model, force = parse_arguments(args)
     
     if not query_parts:
-        console.print("[red]Error: Query is required. Use --help for usage information.[/red]")
-        raise typer.Exit(1)
+        # Enter interactive mode with tab completion
+        query_str = _interactive_query()
+        if not query_str:
+            console.print("[yellow]No query provided. Exiting.[/yellow]")
+            raise typer.Exit(0)
+    else:
+        query_str = " ".join(query_parts)
     
-    query_str = " ".join(query_parts)
     command_runner.run(query_str, execute=execute, model=model, copy=copy, force=force)
 
 
@@ -126,6 +171,16 @@ def cli():
         query_parts, execute, copy, model, force = parse_arguments(args)
         if query_parts:
             command_runner.run(" ".join(query_parts), execute=execute, model=model, copy=copy, force=force)
+            return
+    
+    # If no query provided and no known command, enter interactive mode
+    if not first_non_option:
+        query_parts, execute, copy, model, force = parse_arguments(args)
+        if not query_parts:
+            # Interactive mode
+            query_str = _interactive_query()
+            if query_str:
+                command_runner.run(query_str, execute=execute, model=model, copy=copy, force=force)
             return
     
     # Otherwise, let Typer handle it (for known commands)

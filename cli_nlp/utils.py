@@ -10,10 +10,12 @@ HELP_TEXT = """
 
 [bold]Usage:[/bold]
     nlp [OPTIONS] <query>
+    nlp [OPTIONS]              (interactive mode with tab completion)
     nlp <command> [ARGS]
 
 [bold]Arguments:[/bold]
     query    Natural language description of the command you want
+            (if omitted, enters interactive mode with tab completion)
 
 [bold]Options:[/bold]
     -e, --execute          Execute the generated command automatically

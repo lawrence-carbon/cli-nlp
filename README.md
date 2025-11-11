@@ -99,6 +99,34 @@ If using Poetry without installing globally:
 poetry run nlp "list all python files in current directory"
 ```
 
+### Interactive Mode with Tab Completion
+
+When you run `nlp` without a query, it enters interactive mode with tab completion enabled:
+
+```bash
+nlp
+Query: list files in /home/user/Documents<TAB>
+```
+
+**Tab completion features:**
+- **File paths**: Tab-complete file and directory paths (e.g., `/home/user/`, `./`, `~/`)
+- **Command names**: Tab-complete common command words and system commands
+- **History**: Previous queries are saved and can be accessed with arrow keys
+- **Bash-style completion**: Works just like bash completion for paths and commands
+
+**Examples:**
+```bash
+# Interactive mode - press Tab to complete paths
+nlp
+Query: find all python files in ~/projects<TAB>
+
+# Tab completion works for:
+# - Absolute paths: /home/user/Documents<TAB>
+# - Relative paths: ./src<TAB>
+# - Home directory: ~/Documents<TAB>
+# - Command names: git<TAB>, docker<TAB>
+```
+
 ### Execute Command Directly
 
 ```bash
