@@ -17,6 +17,7 @@ HELP_TEXT = """
 
 [bold]Options:[/bold]
     -e, --execute          Execute the generated command automatically
+    -f, --force            Bypass safety check for modifying commands (use with caution)
     -m, --model TEXT       OpenAI model to use (default: from config or gpt-4o-mini)
     -c, --copy             Copy command to clipboard (requires xclip or xsel)
     -h, --help             Show this message and exit

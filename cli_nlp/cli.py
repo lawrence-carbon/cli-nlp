@@ -22,17 +22,18 @@ config_manager = ConfigManager()
 command_runner = CommandRunner(config_manager)
 
 
-def parse_arguments(args: List[str]) -> Tuple[List[str], bool, bool, Optional[str]]:
+def parse_arguments(args: List[str]) -> Tuple[List[str], bool, bool, Optional[str], bool]:
     """
     Parse command line arguments.
     
     Returns:
-        Tuple of (query_parts, execute, copy, model)
+        Tuple of (query_parts, execute, copy, model, force)
     """
     query_parts = []
     execute = False
     copy = False
     model = None
+    force = False
     
     i = 0
     while i < len(args):
@@ -41,6 +42,9 @@ def parse_arguments(args: List[str]) -> Tuple[List[str], bool, bool, Optional[st
             i += 1
         elif args[i] in ['-c', '--copy']:
             copy = True
+            i += 1
+        elif args[i] in ['-f', '--force']:
+            force = True
             i += 1
         elif args[i] in ['-m', '--model']:
             if i + 1 < len(args):
@@ -54,14 +58,14 @@ def parse_arguments(args: List[str]) -> Tuple[List[str], bool, bool, Optional[st
         else:
             i += 1
     
-    return query_parts, execute, copy, model
+    return query_parts, execute, copy, model, force
 
 
 def find_first_non_option(args: List[str]) -> Optional[str]:
     """Find the first non-option argument."""
     i = 0
     while i < len(args):
-        if args[i] in ['-e', '--execute', '-c', '--copy', '-h', '--help']:
+        if args[i] in ['-e', '--execute', '-c', '--copy', '-f', '--force', '-h', '--help']:
             i += 1
         elif args[i] in ['-m', '--model']:
             i += 2  # Skip option and value
@@ -86,14 +90,14 @@ def main_callback(ctx: typer.Context):
     
     # Parse arguments manually
     args = sys.argv[1:]
-    query_parts, execute, copy, model = parse_arguments(args)
+    query_parts, execute, copy, model, force = parse_arguments(args)
     
     if not query_parts:
         console.print("[red]Error: Query is required. Use --help for usage information.[/red]")
         raise typer.Exit(1)
     
     query_str = " ".join(query_parts)
-    command_runner.run(query_str, execute=execute, model=model, copy=copy)
+    command_runner.run(query_str, execute=execute, model=model, copy=copy, force=force)
 
 
 @app.command(name="init-config")
@@ -119,9 +123,9 @@ def cli():
     
     # If first non-option is not a known command, treat everything as query
     if first_non_option and first_non_option not in known_commands:
-        query_parts, execute, copy, model = parse_arguments(args)
+        query_parts, execute, copy, model, force = parse_arguments(args)
         if query_parts:
-            command_runner.run(" ".join(query_parts), execute=execute, model=model, copy=copy)
+            command_runner.run(" ".join(query_parts), execute=execute, model=model, copy=copy, force=force)
             return
     
     # Otherwise, let Typer handle it (for known commands)
@@ -142,9 +146,9 @@ def cli():
     except Exception as e:
         # If it's a "No such command" error, treat it as a query
         if "No such command" in str(e):
-            query_parts, execute, copy, model = parse_arguments(args)
+            query_parts, execute, copy, model, force = parse_arguments(args)
             if query_parts:
-                command_runner.run(" ".join(query_parts), execute=execute, model=model, copy=copy)
+                command_runner.run(" ".join(query_parts), execute=execute, model=model, copy=copy, force=force)
                 return
         raise
 
