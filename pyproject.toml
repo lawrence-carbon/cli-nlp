@@ -25,6 +25,7 @@ openai = "^1.0.0"
 click = "^8.1.0"
 pydantic = "^2.0.0"
 prompt_toolkit = "^3.0.0"
+rich = "^13.0.0"
 
 [tool.poetry.scripts]
 qtc = "cli_nlp.cli:cli_entry"
