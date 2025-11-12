@@ -5,7 +5,7 @@ import subprocess
 import sys
 from typing import List, Optional
 
-import typer
+import click
 from rich.console import Console
 from rich.panel import Panel
 
@@ -86,7 +86,7 @@ Examples:
         except ImportError:
             console.print("[red]Error: OpenAI package not installed.[/red]")
             console.print("[yellow]Please install it with: poetry install[/yellow]")
-            raise typer.Exit(1)
+            sys.exit(1)
         
         api_key = self.config_manager.get_api_key()
         
@@ -97,7 +97,7 @@ Examples:
             console.print(f"  1. Add 'openai_api_key' to config file: {config_path}")
             console.print("  2. Set OPENAI_API_KEY environment variable")
             console.print("  3. Run: qtc init-config")
-            raise typer.Exit(1)
+            sys.exit(1)
         
         return OpenAI(api_key=api_key)
     
@@ -200,7 +200,7 @@ Examples:
         
         except Exception as e:
             console.print(f"[red]Error generating command: {e}[/red]")
-            raise typer.Exit(1)
+            sys.exit(1)
     
     def refine_command(
         self,
@@ -292,10 +292,21 @@ Provide {count} distinct approaches, each with different flags, tools, or method
                 
                 alternatives = []
                 for alt_data in alternatives_data[:count]:
+                    # Handle safety_level - normalize "read-only" to "safe"
+                    safety_level_str = alt_data.get("safety_level", "modifying")
+                    if safety_level_str == "read-only":
+                        safety_level_str = "safe"
+                    try:
+                        safety_level = SafetyLevel(safety_level_str)
+                    except ValueError:
+                        # Fallback: use is_safe to determine safety_level
+                        is_safe = alt_data.get("is_safe", False)
+                        safety_level = SafetyLevel.SAFE if is_safe else SafetyLevel.MODIFYING
+                    
                     alternatives.append(CommandResponse(
                         command=alt_data.get("command", ""),
                         is_safe=alt_data.get("is_safe", False),
-                        safety_level=SafetyLevel(alt_data.get("safety_level", "modifying")),
+                        safety_level=safety_level,
                         explanation=alt_data.get("explanation")
                     ))
                 
@@ -531,7 +542,7 @@ If it's a simple single command, return it as a single-item array."""
         if refine:
             console.print("[bold cyan]Refinement Mode[/bold cyan]")
             console.print(f"[dim]Current command: {command}[/dim]\n")
-            refinement = typer.prompt("How would you like to refine this command? (or 'done' to finish)")
+            refinement = click.prompt("How would you like to refine this command? (or 'done' to finish)")
             if refinement.lower() != "done":
                 command_response = self.refine_command(
                     query,
@@ -683,10 +694,10 @@ If it's a simple single command, return it as a single-item array."""
                 queries = [line.strip() for line in f if line.strip() and not line.startswith('#')]
         except FileNotFoundError:
             console.print(f"[red]Error: File '{queries_file}' not found.[/red]")
-            raise typer.Exit(1)
+            sys.exit(1)
         except Exception as e:
             console.print(f"[red]Error reading file: {e}[/red]")
-            raise typer.Exit(1)
+            sys.exit(1)
         
         if not queries:
             console.print("[yellow]No queries found in file.[/yellow]")

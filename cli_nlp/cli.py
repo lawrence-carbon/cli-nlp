@@ -2,9 +2,10 @@
 
 import os
 import sys
-from typing import List, Optional, Tuple
+from typing import Optional
 
-import typer
+import click
+from click.exceptions import UsageError
 
 from cli_nlp.cache_manager import CacheManager
 from cli_nlp.command_runner import CommandRunner
@@ -13,15 +14,7 @@ from cli_nlp.config_manager import ConfigManager
 from cli_nlp.context_manager import ContextManager
 from cli_nlp.history_manager import HistoryManager
 from cli_nlp.template_manager import TemplateManager
-from cli_nlp.utils import console, show_help
-
-# Initialize Typer app
-app = typer.Typer(
-    name="qtc",
-    help="Convert natural language to shell commands using OpenAI",
-    add_completion=False,
-    rich_markup_mode="rich",
-)
+from cli_nlp.utils import console
 
 # Initialize managers
 config_manager = ConfigManager()
@@ -32,57 +25,6 @@ cache_manager = CacheManager(
 context_manager = ContextManager()
 template_manager = TemplateManager()
 command_runner = CommandRunner(config_manager, history_manager, cache_manager, context_manager)
-
-
-def parse_arguments(args: List[str]) -> Tuple[List[str], bool, bool, Optional[str], bool, bool, bool, bool]:
-    """
-    Parse command line arguments.
-    
-    Returns:
-        Tuple of (query_parts, execute, copy, model, force, refine, alternatives, edit)
-    """
-    query_parts = []
-    execute = False
-    copy = False
-    model = None
-    force = False
-    refine = False
-    alternatives = False
-    edit = False
-    
-    i = 0
-    while i < len(args):
-        if args[i] in ['-e', '--execute']:
-            execute = True
-            i += 1
-        elif args[i] in ['-c', '--copy']:
-            copy = True
-            i += 1
-        elif args[i] in ['-f', '--force']:
-            force = True
-            i += 1
-        elif args[i] in ['-r', '--refine']:
-            refine = True
-            i += 1
-        elif args[i] in ['-a', '--alternatives']:
-            alternatives = True
-            i += 1
-        elif args[i] in ['--edit']:
-            edit = True
-            i += 1
-        elif args[i] in ['-m', '--model']:
-            if i + 1 < len(args):
-                model = args[i + 1]
-                i += 2
-            else:
-                i += 1
-        elif not args[i].startswith('-'):
-            query_parts.append(args[i])
-            i += 1
-        else:
-            i += 1
-    
-    return query_parts, execute, copy, model, force, refine, alternatives, edit
 
 
 def _interactive_query() -> str:
@@ -124,45 +66,41 @@ def _interactive_query() -> str:
         return ""
 
 
-def find_first_non_option(args: List[str]) -> Optional[str]:
-    """Find the first non-option argument."""
-    i = 0
-    while i < len(args):
-        if args[i] in ['-e', '--execute', '-c', '--copy', '-f', '--force', '-r', '--refine', '-a', '--alternatives', '--edit', '-h', '--help']:
-            i += 1
-        elif args[i] in ['-m', '--model']:
-            i += 2  # Skip option and value
-        elif not args[i].startswith('-'):
-            return args[i]
-        else:
-            i += 1
-    return None
+# Known commands that should be treated as subcommands
+KNOWN_COMMANDS = ['init-config', 'history', 'cache', 'batch', 'template']
 
 
-@app.callback(invoke_without_command=True)
-def main_callback(ctx: typer.Context):
+@click.group(
+    invoke_without_command=True,
+    context_settings={'help_option_names': ['-h', '--help']}
+)
+@click.option('--execute', '-e', is_flag=True, help='Execute the generated command automatically')
+@click.option('--copy', '-c', is_flag=True, help='Copy command to clipboard (requires xclip or xsel)')
+@click.option('--model', '-m', help='OpenAI model to use (default: from config or gpt-4o-mini)')
+@click.option('--force', '-f', is_flag=True, help='Bypass safety check for modifying commands (use with caution)')
+@click.option('--refine', '-r', is_flag=True, help='Enter refinement mode to improve the command')
+@click.option('--alternatives', '-a', is_flag=True, help='Show alternative command options')
+@click.option('--edit', is_flag=True, help='Edit command in your default editor before execution')
+@click.pass_context
+def cli(ctx, execute, copy, model, force, refine, alternatives, edit):
     """Convert natural language to shell commands using OpenAI."""
     # If a subcommand was invoked, let it handle it
     if ctx.invoked_subcommand is not None:
         return
     
-    # Handle help case
-    if '--help' in sys.argv or '-h' in sys.argv:
-        show_help()
-        raise typer.Exit()
+    # Get remaining args after Click has processed options
+    # ctx.args contains the remaining positional arguments
+    remaining_args = ctx.args
     
-    # Parse arguments manually
-    args = sys.argv[1:]
-    query_parts, execute, copy, model, force, refine, alternatives, edit = parse_arguments(args)
-    
-    if not query_parts:
+    # Build query string from remaining arguments
+    if remaining_args:
+        query_str = " ".join(remaining_args)
+    else:
         # Enter interactive mode with tab completion
         query_str = _interactive_query()
         if not query_str:
             console.print("[yellow]No query provided. Exiting.[/yellow]")
-            raise typer.Exit(0)
-    else:
-        query_str = " ".join(query_parts)
+            sys.exit(0)
     
     command_runner.run(
         query_str,
@@ -176,19 +114,22 @@ def main_callback(ctx: typer.Context):
     )
 
 
-@app.command(name="init-config")
+@cli.command(name="init-config")
 def init_config_cmd():
     """Create a default config file template."""
     config_manager.create_default()
 
 
 # History subcommand group
-history_app = typer.Typer(name="history", help="Manage command history")
-app.add_typer(history_app)
+@cli.group(name="history", help="Manage command history")
+def history_group():
+    """Manage command history."""
+    pass
 
 
-@history_app.command(name="list")
-def history_list(limit: int = typer.Option(20, "--limit", "-n", help="Number of entries to show")):
+@history_group.command(name="list")
+@click.option('--limit', '-n', default=20, help='Number of entries to show')
+def history_list(limit):
     """List recent history entries."""
     entries = history_manager.get_all(limit=limit)
     
@@ -225,11 +166,10 @@ def history_list(limit: int = typer.Option(20, "--limit", "-n", help="Number of 
     console.print(table)
 
 
-@history_app.command(name="search")
-def history_search(
-    query: str = typer.Argument(..., help="Search term"),
-    limit: int = typer.Option(20, "--limit", "-n", help="Number of results to show"),
-):
+@history_group.command(name="search")
+@click.argument('query', required=True)
+@click.option('--limit', '-n', default=20, help='Number of results to show')
+def history_search(query, limit):
     """Search history by query or command."""
     results = history_manager.search(query)
     
@@ -265,14 +205,15 @@ def history_search(
     console.print(table)
 
 
-@history_app.command(name="show")
-def history_show(entry_id: int = typer.Argument(..., help="History entry ID")):
+@history_group.command(name="show")
+@click.argument('entry_id', type=int, required=True)
+def history_show(entry_id):
     """Show detailed information about a history entry."""
     entry = history_manager.get_by_id(entry_id)
     
     if not entry:
         console.print(f"[red]History entry {entry_id} not found.[/red]")
-        raise typer.Exit(1)
+        sys.exit(1)
     
     from rich.panel import Panel
     from rich.text import Text
@@ -290,17 +231,16 @@ def history_show(entry_id: int = typer.Argument(..., help="History entry ID")):
     ))
 
 
-@history_app.command(name="execute")
-def history_execute(
-    entry_id: int = typer.Argument(..., help="History entry ID to execute"),
-    force: bool = typer.Option(False, "--force", "-f", help="Bypass safety check"),
-):
+@history_group.command(name="execute")
+@click.argument('entry_id', type=int, required=True)
+@click.option('--force', '-f', is_flag=True, help='Bypass safety check')
+def history_execute(entry_id, force):
     """Re-execute a command from history."""
     entry = history_manager.get_by_id(entry_id)
     
     if not entry:
         console.print(f"[red]History entry {entry_id} not found.[/red]")
-        raise typer.Exit(1)
+        sys.exit(1)
     
     console.print(f"[bold]Re-executing command from history entry #{entry_id}:[/bold]")
     console.print(f"[dim]Original query: {entry.query}[/dim]\n")
@@ -313,15 +253,14 @@ def history_execute(
     )
 
 
-@history_app.command(name="export")
-def history_export(
-    output: str = typer.Option("history.json", "--output", "-o", help="Output file path"),
-    format: str = typer.Option("json", "--format", "-f", help="Export format (json or csv)"),
-):
+@history_group.command(name="export")
+@click.option('--output', '-o', default='history.json', help='Output file path')
+@click.option('--format', '-f', default='json', help='Export format (json or csv)')
+def history_export(output, format):
     """Export history to a file."""
     if format not in ["json", "csv"]:
         console.print("[red]Format must be 'json' or 'csv'.[/red]")
-        raise typer.Exit(1)
+        sys.exit(1)
     
     try:
         content = history_manager.export(format=format)
@@ -330,17 +269,16 @@ def history_export(
         console.print(f"[green]History exported to {output} ({format} format)[/green]")
     except Exception as e:
         console.print(f"[red]Error exporting history: {e}[/red]")
-        raise typer.Exit(1)
+        sys.exit(1)
 
 
-@history_app.command(name="clear")
-def history_clear(
-    confirm: bool = typer.Option(False, "--yes", "-y", help="Skip confirmation"),
-):
+@history_group.command(name="clear")
+@click.option('--yes', '-y', is_flag=True, help='Skip confirmation')
+def history_clear(yes):
     """Clear all history entries."""
-    if not confirm:
+    if not yes:
         console.print("[yellow]This will delete all history entries.[/yellow]")
-        response = typer.prompt("Are you sure? (yes/no)", default="no")
+        response = click.prompt("Are you sure? (yes/no)", default="no")
         if response.lower() not in ["yes", "y"]:
             console.print("[yellow]Cancelled.[/yellow]")
             return
@@ -350,11 +288,13 @@ def history_clear(
 
 
 # Cache subcommand group
-cache_app = typer.Typer(name="cache", help="Manage command cache")
-app.add_typer(cache_app)
+@cli.group(name="cache", help="Manage command cache")
+def cache_group():
+    """Manage command cache."""
+    pass
 
 
-@cache_app.command(name="stats")
+@cache_group.command(name="stats")
 def cache_stats():
     """Show cache statistics."""
     stats = cache_manager.get_stats()
@@ -374,14 +314,13 @@ def cache_stats():
     console.print(table)
 
 
-@cache_app.command(name="clear")
-def cache_clear(
-    confirm: bool = typer.Option(False, "--yes", "-y", help="Skip confirmation"),
-):
+@cache_group.command(name="clear")
+@click.option('--yes', '-y', is_flag=True, help='Skip confirmation')
+def cache_clear(yes):
     """Clear all cached commands."""
-    if not confirm:
+    if not yes:
         console.print("[yellow]This will delete all cached commands.[/yellow]")
-        response = typer.prompt("Are you sure? (yes/no)", default="no")
+        response = click.prompt("Are you sure? (yes/no)", default="no")
         if response.lower() not in ["yes", "y"]:
             console.print("[yellow]Cancelled.[/yellow]")
             return
@@ -390,35 +329,35 @@ def cache_clear(
     console.print("[green]Cache cleared.[/green]")
 
 
-@app.command(name="batch")
-def batch_cmd(
-    file: str = typer.Argument(..., help="File containing queries (one per line)"),
-    model: Optional[str] = typer.Option(None, "--model", "-m", help="OpenAI model to use"),
-):
+@cli.command(name="batch")
+@click.argument('file', required=True)
+@click.option('--model', '-m', help='OpenAI model to use')
+def batch_cmd(file, model):
     """Process multiple queries from a file."""
     command_runner.run_batch(file, model=model)
 
 
 # Template subcommand group
-template_app = typer.Typer(name="template", help="Manage command templates/aliases")
-app.add_typer(template_app)
+@cli.group(name="template", help="Manage command templates/aliases")
+def template_group():
+    """Manage command templates/aliases."""
+    pass
 
 
-@template_app.command(name="save")
-def template_save(
-    name: str = typer.Argument(..., help="Template name/alias"),
-    command: str = typer.Argument(..., help="Command to save"),
-    description: Optional[str] = typer.Option(None, "--description", "-d", help="Template description"),
-):
+@template_group.command(name="save")
+@click.argument('name', required=True)
+@click.argument('command', required=True)
+@click.option('--description', '-d', help='Template description')
+def template_save(name, command, description):
     """Save a command as a template/alias."""
     if template_manager.save_template(name, command, description):
         console.print(f"[green]Template '{name}' saved.[/green]")
     else:
         console.print("[red]Error: Failed to save template.[/red]")
-        raise typer.Exit(1)
+        sys.exit(1)
 
 
-@template_app.command(name="list")
+@template_group.command(name="list")
 def template_list():
     """List all saved templates."""
     templates = template_manager.list_templates()
@@ -444,18 +383,17 @@ def template_list():
     console.print(table)
 
 
-@template_app.command(name="use")
-def template_use(
-    name: str = typer.Argument(..., help="Template name to use"),
-    execute: bool = typer.Option(False, "--execute", "-e", help="Execute the command"),
-    force: bool = typer.Option(False, "--force", "-f", help="Bypass safety check"),
-):
+@template_group.command(name="use")
+@click.argument('name', required=True)
+@click.option('--execute', '-e', is_flag=True, help='Execute the command')
+@click.option('--force', '-f', is_flag=True, help='Bypass safety check')
+def template_use(name, execute, force):
     """Use a saved template."""
     command = template_manager.get_template(name)
     
     if not command:
         console.print(f"[red]Template '{name}' not found.[/red]")
-        raise typer.Exit(1)
+        sys.exit(1)
     
     console.print(f"[bold]Using template '{name}':[/bold] {command}\n")
     command_runner.run(
@@ -465,19 +403,18 @@ def template_use(
     )
 
 
-@template_app.command(name="delete")
-def template_delete(
-    name: str = typer.Argument(..., help="Template name to delete"),
-    confirm: bool = typer.Option(False, "--yes", "-y", help="Skip confirmation"),
-):
+@template_group.command(name="delete")
+@click.argument('name', required=True)
+@click.option('--yes', '-y', is_flag=True, help='Skip confirmation')
+def template_delete(name, yes):
     """Delete a template."""
     if not template_manager.template_exists(name):
         console.print(f"[red]Template '{name}' not found.[/red]")
-        raise typer.Exit(1)
+        sys.exit(1)
     
-    if not confirm:
+    if not yes:
         console.print(f"[yellow]This will delete template '{name}'.[/yellow]")
-        response = typer.prompt("Are you sure? (yes/no)", default="no")
+        response = click.prompt("Are you sure? (yes/no)", default="no")
         if response.lower() not in ["yes", "y"]:
             console.print("[yellow]Cancelled.[/yellow]")
             return
@@ -486,30 +423,67 @@ def template_delete(
         console.print(f"[green]Template '{name}' deleted.[/green]")
     else:
         console.print(f"[red]Error deleting template '{name}'.[/red]")
-        raise typer.Exit(1)
+        sys.exit(1)
 
 
-def cli():
-    """CLI entry point."""
-    # Known subcommands
-    known_commands = ['init-config', 'history', 'cache', 'batch', 'template']
-    
-    # Check for help flag before Typer tries to parse (which triggers the bug)
-    if '--help' in sys.argv or '-h' in sys.argv:
-        show_help()
-        sys.exit(0)
-    
-    # Pre-process arguments: if first non-option arg is not a known command,
-    # treat everything as a query and call the runner directly
+def main():
+    """CLI entry point with error handling for command-less queries."""
+    # Check if first non-option arg is a known command
     args = sys.argv[1:]
-    first_non_option = find_first_non_option(args)
+    first_non_option = None
+    i = 0
+    while i < len(args):
+        if args[i] in ['-e', '--execute', '-c', '--copy', '-f', '--force', 
+                      '-r', '--refine', '-a', '--alternatives', '--edit', '-h', '--help']:
+            i += 1
+        elif args[i] in ['-m', '--model']:
+            i += 2
+        elif not args[i].startswith('-'):
+            first_non_option = args[i]
+            break
+        else:
+            i += 1
     
-    # If first non-option is not a known command, treat everything as query
-    if first_non_option and first_non_option not in known_commands:
-        query_parts, execute, copy, model, force, refine, alternatives, edit = parse_arguments(args)
+    # If first non-option is not a known command, treat everything as a query
+    if first_non_option and first_non_option not in KNOWN_COMMANDS:
+        # Parse options manually
+        execute = '--execute' in args or '-e' in args
+        copy = '--copy' in args or '-c' in args
+        force = '--force' in args or '-f' in args
+        refine = '--refine' in args or '-r' in args
+        alternatives = '--alternatives' in args or '-a' in args
+        edit = '--edit' in args
+        
+        # Extract model
+        model = None
+        if '--model' in args:
+            idx = args.index('--model')
+            if idx + 1 < len(args):
+                model = args[idx + 1]
+        elif '-m' in args:
+            idx = args.index('-m')
+            if idx + 1 < len(args):
+                model = args[idx + 1]
+        
+        # Extract query (everything that's not an option)
+        query_parts = []
+        i = 0
+        while i < len(args):
+            if args[i] in ['-e', '--execute', '-c', '--copy', '-f', '--force', 
+                          '-r', '--refine', '-a', '--alternatives', '--edit']:
+                i += 1
+            elif args[i] in ['-m', '--model']:
+                i += 2
+            elif not args[i].startswith('-'):
+                query_parts.append(args[i])
+                i += 1
+            else:
+                i += 1
+        
         if query_parts:
+            query_str = " ".join(query_parts)
             command_runner.run(
-                " ".join(query_parts),
+                query_str,
                 execute=execute,
                 model=model,
                 copy=copy,
@@ -520,59 +494,19 @@ def cli():
             )
             return
     
-    # If no query provided and no known command, enter interactive mode
-    if not first_non_option:
-        query_parts, execute, copy, model, force, refine, alternatives, edit = parse_arguments(args)
-        if not query_parts:
-            # Interactive mode
-            query_str = _interactive_query()
-            if query_str:
-                command_runner.run(
-                    query_str,
-                    execute=execute,
-                    model=model,
-                    copy=copy,
-                    force=force,
-                    refine=refine,
-                    alternatives=alternatives,
-                    edit=edit,
-                )
-            return
-    
-    # Otherwise, let Typer handle it (for known commands)
+    # Otherwise, let Click handle it (for known commands or no args)
     try:
-        app()
-    except (TypeError, AttributeError) as e:
-        error_str = str(e)
-        if "make_metavar" in error_str or "Parameter" in error_str:
-            # Workaround for Typer 0.12.5 bug - show custom help
-            show_help()
-            sys.exit(0)
-        else:
-            raise
-    except typer.Exit:
+        cli()
+    except (UsageError, click.exceptions.UsageError) as e:
+        # If Click still fails, re-raise
         raise
-    except SystemExit:
-        raise
-    except Exception as e:
-        # If it's a "No such command" error, treat it as a query
-        if "No such command" in str(e):
-            query_parts, execute, copy, model, force, refine, alternatives, edit = parse_arguments(args)
-            if query_parts:
-                command_runner.run(
-                    " ".join(query_parts),
-                    execute=execute,
-                    model=model,
-                    copy=copy,
-                    force=force,
-                    refine=refine,
-                    alternatives=alternatives,
-                    edit=edit,
-                )
-                return
-        raise
+
+
+# Export main as cli_entry for poetry scripts entry point
+def cli_entry():
+    """Entry point for poetry scripts."""
+    main()
 
 
 if __name__ == "__main__":
-    cli()
-
+    main()
