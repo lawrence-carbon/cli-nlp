@@ -1,49 +1,53 @@
-name: Test
+name: Tests
 
 on:
   push:
-    branches: [ master, main ]
+    branches: [ master, main, develop ]
   pull_request:
-    branches: [ master, main ]
+    branches: [ master, main, develop ]
 
 jobs:
   test:
+    name: Run Tests
     runs-on: ubuntu-latest
+    
     strategy:
       matrix:
         python-version: ["3.12"]
-
+    
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
-
-      - name: Install Poetry
-        uses: snok/install-poetry@v1
-        with:
-          version: latest
-          virtualenvs-create: true
-          virtualenvs-in-project: true
-
-      - name: Load cached venv
-        uses: actions/cache@v4
-        with:
-          path: .venv
-          key: venv-${{ runner.os }}-${{ matrix.python-version }}-${{ hashFiles('**/poetry.lock') }}
-
-      - name: Install dependencies
-        run: poetry install --no-interaction
-
-      - name: Run linter
-        run: poetry run ruff check cli_nlp/ || true
-
-      - name: Check formatting
-        run: poetry run black --check cli_nlp/ || true
-
-      - name: Test import
-        run: poetry run python -c "from cli_nlp import cli; print('Import OK')"
-
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+        cache: 'poetry'
+    
+    - name: Install Poetry
+      uses: snok/install-poetry@v1
+      with:
+        version: latest
+        virtualenvs-create: true
+        virtualenvs-in-project: true
+    
+    - name: Install dependencies
+      run: |
+        poetry install --no-interaction --no-root
+    
+    - name: Install project
+      run: |
+        poetry install --no-interaction
+    
+    - name: Run tests with pytest
+      run: |
+        poetry run pytest tests/ -v --cov=cli_nlp --cov-report=xml --cov-report=term-missing
+    
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v4
+      with:
+        file: ./coverage.xml
+        flags: unittests
+        name: codecov-umbrella
+        fail_ci_if_error: false
+      if: matrix.python-version == '3.12'
