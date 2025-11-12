@@ -1,5 +1,9 @@
 # QTC: Query to Command - Natural Language to Shell Command Converter
 
+[![Tests](https://github.com/lawrence-carbon/cli-nlp/workflows/Tests/badge.svg)](https://github.com/lawrence-carbon/cli-nlp/actions)
+[![PyPI version](https://badge.fury.io/py/query-to-command.svg)](https://badge.fury.io/py/query-to-command)
+[![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/downloads/)
+
 A command-line utility that converts natural language requests into shell commands using OpenAI's API.
 
 ## Features
