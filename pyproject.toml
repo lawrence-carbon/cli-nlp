@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "query-to-command"
-version = "0.2.0"
+version = "0.3.0"
 description = "Natural Language to Shell Command Converter using OpenAI"
 authors = ["Lawrence <lawrence.carbon@gmail.com>"]
 readme = "README.md"
