@@ -40,3 +40,11 @@ dist/
 build/
 *.egg-info/
 
+# Test artifacts
+.coverage
+coverage.xml
+htmlcov/
+.pytest_cache/
+.tox/
+.hypothesis/
+
