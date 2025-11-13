@@ -91,7 +91,7 @@ def _fetch_from_litellm() -> dict[str, list[str]]:
                 continue
 
             # Convert models to list if needed and filter
-            model_list = list(models) if isinstance(models, (list, set, tuple)) else [models]
+            model_list = list(models) if isinstance(models, list | set | tuple) else [models]
 
             # Deduplicate and sort models
             unique_models = sorted(set(model_list))
