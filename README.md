@@ -1,7 +1,10 @@
 # QTC: Query to Command - Natural Language to Shell Command Converter
 
 [![Tests](https://github.com/lawrence-carbon/cli-nlp/workflows/Tests/badge.svg)](https://github.com/lawrence-carbon/cli-nlp/actions)
+[![codecov](https://codecov.io/gh/lawrence-carbon/cli-nlp/branch/master/graph/badge.svg)](https://codecov.io/gh/lawrence-carbon/cli-nlp)
 [![PyPI version](https://badge.fury.io/py/query-to-command.svg)](https://badge.fury.io/py/query-to-command)
+[![PyPI downloads](https://img.shields.io/pypi/dm/query-to-command.svg)](https://pypi.org/project/query-to-command/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/downloads/)
 
 A command-line utility that converts natural language requests into shell commands using OpenAI's API.
@@ -335,6 +338,47 @@ qtc "delete all .pyc files" --execute --force
 
 ## Development
 
+### Setup Development Environment
+
+1. **Clone the repository**:
+   ```bash
+   git clone https://github.com/lawrence-carbon/cli-nlp.git
+   cd cli-nlp
+   ```
+
+2. **Install dependencies**:
+   ```bash
+   poetry install
+   ```
+
+3. **Activate the virtual environment**:
+   ```bash
+   poetry shell
+   ```
+
+4. **Run tests**:
+   ```bash
+   poetry run pytest
+   ```
+
+5. **Run tests with coverage**:
+   ```bash
+   poetry run pytest --cov=cli_nlp --cov-report=html
+   ```
+
+6. **Format code**:
+   ```bash
+   poetry run black .
+   ```
+
+7. **Lint code**:
+   ```bash
+   poetry run ruff check .
+   poetry run ruff check --fix .  # Auto-fix issues
+   ```
+
+### Project Structure
+
 The codebase is organized into modular classes:
 
 - **ConfigManager** (`config_manager.py`): Handles configuration file operations (loading, saving, multi-provider API key management)
@@ -345,6 +389,15 @@ The codebase is organized into modular classes:
 - **Utils** (`utils.py`): Utility functions (help text, clipboard operations)
 
 This structure makes the code maintainable and easy to extend.
+
+### Contributing
+
+We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+
+- 📝 [Contributing Guidelines](CONTRIBUTING.md)
+- 📋 [Code of Conduct](CODE_OF_CONDUCT.md)
+- 🔒 [Security Policy](SECURITY.md)
+- 📜 [Changelog](CHANGELOG.md)
 
 ## Notes
 
@@ -360,5 +413,5 @@ This structure makes the code maintainable and easy to extend.
 
 ## License
 
-MIT
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
