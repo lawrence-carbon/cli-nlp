@@ -27,7 +27,7 @@ def temp_config_file(temp_dir):
         "providers": {
             "openai": {
                 "api_key": "test-api-key-12345",
-                "models": ["gpt-4o-mini", "gpt-4o"]
+                "models": ["gpt-4o-mini", "gpt-4o"],
             }
         },
         "active_provider": "openai",
@@ -181,12 +181,14 @@ def mock_openai_response_structured(sample_command_response):
 def mock_openai_response_json():
     """Mock OpenAI JSON response."""
     mock_message = MagicMock()
-    mock_message.content = json.dumps({
-        "command": "ls -la",
-        "is_safe": True,
-        "safety_level": "safe",
-        "explanation": "List files in current directory",
-    })
+    mock_message.content = json.dumps(
+        {
+            "command": "ls -la",
+            "is_safe": True,
+            "safety_level": "safe",
+            "explanation": "List files in current directory",
+        }
+    )
 
     mock_choice = MagicMock()
     mock_choice.message = mock_message
@@ -201,28 +203,30 @@ def mock_openai_response_json():
 def mock_openai_alternatives_response():
     """Mock OpenAI response for alternatives."""
     mock_message = MagicMock()
-    mock_message.content = json.dumps({
-        "alternatives": [
-            {
-                "command": "ls -la",
-                "is_safe": True,
-                "safety_level": "safe",
-                "explanation": "List files with details",
-            },
-            {
-                "command": "ls -lah",
-                "is_safe": True,
-                "safety_level": "safe",
-                "explanation": "List files with human-readable sizes",
-            },
-            {
-                "command": "find . -maxdepth 1 -type f",
-                "is_safe": True,
-                "safety_level": "safe",
-                "explanation": "Find files in current directory",
-            },
-        ]
-    })
+    mock_message.content = json.dumps(
+        {
+            "alternatives": [
+                {
+                    "command": "ls -la",
+                    "is_safe": True,
+                    "safety_level": "safe",
+                    "explanation": "List files with details",
+                },
+                {
+                    "command": "ls -lah",
+                    "is_safe": True,
+                    "safety_level": "safe",
+                    "explanation": "List files with human-readable sizes",
+                },
+                {
+                    "command": "find . -maxdepth 1 -type f",
+                    "is_safe": True,
+                    "safety_level": "safe",
+                    "explanation": "Find files in current directory",
+                },
+            ]
+        }
+    )
 
     mock_choice = MagicMock()
     mock_choice.message = mock_message
@@ -237,26 +241,28 @@ def mock_openai_alternatives_response():
 def mock_openai_multi_command_response():
     """Mock OpenAI response for multi-command."""
     mock_message = MagicMock()
-    mock_message.content = json.dumps({
-        "commands": [
-            {
-                "command": "find . -name '*.py'",
-                "is_safe": True,
-                "safety_level": "safe",
-                "explanation": "Find Python files",
-            },
-            {
-                "command": "wc -l",
-                "is_safe": True,
-                "safety_level": "safe",
-                "explanation": "Count lines",
-            },
-        ],
-        "execution_type": "pipeline",
-        "combined_command": "find . -name '*.py' | wc -l",
-        "overall_safe": True,
-        "explanation": "Find Python files and count lines",
-    })
+    mock_message.content = json.dumps(
+        {
+            "commands": [
+                {
+                    "command": "find . -name '*.py'",
+                    "is_safe": True,
+                    "safety_level": "safe",
+                    "explanation": "Find Python files",
+                },
+                {
+                    "command": "wc -l",
+                    "is_safe": True,
+                    "safety_level": "safe",
+                    "explanation": "Count lines",
+                },
+            ],
+            "execution_type": "pipeline",
+            "combined_command": "find . -name '*.py' | wc -l",
+            "overall_safe": True,
+            "explanation": "Find Python files and count lines",
+        }
+    )
 
     mock_choice = MagicMock()
     mock_choice.message = mock_message
@@ -265,4 +271,3 @@ def mock_openai_multi_command_response():
     mock_response.choices = [mock_choice]
 
     return mock_response
-

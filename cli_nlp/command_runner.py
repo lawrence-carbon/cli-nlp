@@ -101,20 +101,32 @@ Examples:
                 console.print("[bold cyan]Quick start:[/bold cyan]")
                 console.print("  Run: [green]qtc config providers set[/green]")
                 console.print("\nThis will guide you through:")
-                console.print("  • Selecting a provider (OpenAI, Anthropic, Google, etc.)")
+                console.print(
+                    "  • Selecting a provider (OpenAI, Anthropic, Google, etc.)"
+                )
                 console.print("  • Choosing a model")
                 console.print("  • Entering your API key securely")
-                console.print("\n[dim]The config file will be created automatically at:[/dim]")
+                console.print(
+                    "\n[dim]The config file will be created automatically at:[/dim]"
+                )
                 console.print(f"[dim]{config_path}[/dim]")
-                console.print("\n[dim]Alternative: Set environment variables (e.g., OPENAI_API_KEY)[/dim]")
+                console.print(
+                    "\n[dim]Alternative: Set environment variables (e.g., OPENAI_API_KEY)[/dim]"
+                )
             else:
                 # Config exists but no active provider or API key
-                console.print("[red]Error: API key not found for active provider.[/red]")
+                console.print(
+                    "[red]Error: API key not found for active provider.[/red]"
+                )
                 if not active_provider:
                     console.print("\n[yellow]No active provider configured.[/yellow]")
-                    console.print("Run: [green]qtc config providers set[/green] to configure a provider.")
+                    console.print(
+                        "Run: [green]qtc config providers set[/green] to configure a provider."
+                    )
                 else:
-                    console.print(f"\n[yellow]Active provider '{active_provider}' is missing an API key.[/yellow]")
+                    console.print(
+                        f"\n[yellow]Active provider '{active_provider}' is missing an API key.[/yellow]"
+                    )
                     console.print("Please either:")
                     console.print("  1. Run: [green]qtc config providers set[/green]")
                     console.print("  2. Set provider-specific environment variable")
@@ -166,8 +178,16 @@ Examples:
 
         # Use provided values or fall back to config or defaults
         model = model or self.config_manager.get_active_model()
-        temperature = temperature if temperature is not None else self.config_manager.get("temperature", 0.3)
-        max_tokens = max_tokens if max_tokens is not None else self.config_manager.get("max_tokens", 200)
+        temperature = (
+            temperature
+            if temperature is not None
+            else self.config_manager.get("temperature", 0.3)
+        )
+        max_tokens = (
+            max_tokens
+            if max_tokens is not None
+            else self.config_manager.get("max_tokens", 200)
+        )
 
         # Check cache first
         if use_cache:
@@ -179,7 +199,9 @@ Examples:
         context_str = self.context_manager.build_context_string(
             include_git=self.config_manager.get("include_git_context", True)
         )
-        context_prompt = f"{context_str}\n\nUser request: {query}" if context_str else query
+        context_prompt = (
+            f"{context_str}\n\nUser request: {query}" if context_str else query
+        )
 
         try:
             import litellm
@@ -200,15 +222,15 @@ Examples:
                         model=model,
                         messages=[
                             {"role": "system", "content": self.SYSTEM_PROMPT},
-                            {"role": "user", "content": context_prompt}
+                            {"role": "user", "content": context_prompt},
                         ],
                         response_format={
                             "type": "json_schema",
                             "json_schema": json_schema,
-                            "strict": True
+                            "strict": True,
                         },
                         temperature=temperature,
-                        max_tokens=max_tokens
+                        max_tokens=max_tokens,
                     )
 
                     content = response.choices[0].message.content.strip()
@@ -219,7 +241,11 @@ Examples:
 
                     # Ensure safety_level is set based on is_safe
                     if command_response.safety_level is None:
-                        command_response.safety_level = SafetyLevel.SAFE if command_response.is_safe else SafetyLevel.MODIFYING
+                        command_response.safety_level = (
+                            SafetyLevel.SAFE
+                            if command_response.is_safe
+                            else SafetyLevel.MODIFYING
+                        )
 
                     # Cache the response
                     if use_cache:
@@ -229,17 +255,20 @@ Examples:
                 except Exception:
                     # Fallback: Use JSON mode (requires "json" in prompt)
                     try:
-                        system_prompt_with_json = self.SYSTEM_PROMPT + "\n\nYou must respond with a valid JSON object matching this schema: {\"command\": \"string\", \"is_safe\": boolean, \"safety_level\": \"safe\" or \"modifying\", \"explanation\": \"string (optional)\"}"
+                        system_prompt_with_json = (
+                            self.SYSTEM_PROMPT
+                            + '\n\nYou must respond with a valid JSON object matching this schema: {"command": "string", "is_safe": boolean, "safety_level": "safe" or "modifying", "explanation": "string (optional)"}'
+                        )
 
                         response = litellm.completion(
                             model=model,
                             messages=[
                                 {"role": "system", "content": system_prompt_with_json},
-                                {"role": "user", "content": context_prompt}
+                                {"role": "user", "content": context_prompt},
                             ],
                             response_format={"type": "json_object"},
                             temperature=temperature,
-                            max_tokens=max_tokens
+                            max_tokens=max_tokens,
                         )
 
                         content = response.choices[0].message.content.strip()
@@ -250,7 +279,11 @@ Examples:
 
                         # Ensure safety_level is set based on is_safe
                         if command_response.safety_level is None:
-                            command_response.safety_level = SafetyLevel.SAFE if command_response.is_safe else SafetyLevel.MODIFYING
+                            command_response.safety_level = (
+                                SafetyLevel.SAFE
+                                if command_response.is_safe
+                                else SafetyLevel.MODIFYING
+                            )
 
                         # Cache the response
                         if use_cache:
@@ -264,24 +297,31 @@ Examples:
                             messages=[
                                 {
                                     "role": "system",
-                                    "content": self.SYSTEM_PROMPT + "\n\nYou must respond with a valid JSON object matching this schema: {\"command\": \"string\", \"is_safe\": boolean, \"safety_level\": \"safe\" or \"modifying\", \"explanation\": \"string (optional)\"}"
+                                    "content": self.SYSTEM_PROMPT
+                                    + '\n\nYou must respond with a valid JSON object matching this schema: {"command": "string", "is_safe": boolean, "safety_level": "safe" or "modifying", "explanation": "string (optional)"}',
                                 },
-                                {"role": "user", "content": context_prompt}
+                                {"role": "user", "content": context_prompt},
                             ],
                             temperature=temperature,
-                            max_tokens=max_tokens
+                            max_tokens=max_tokens,
                         )
 
                         content = response.choices[0].message.content.strip()
                         # Try to extract JSON from response if it's wrapped
                         if "```json" in content:
                             import re
-                            json_match = re.search(r"```json\n(.*?)\n```", content, re.DOTALL)
+
+                            json_match = re.search(
+                                r"```json\n(.*?)\n```", content, re.DOTALL
+                            )
                             if json_match:
                                 content = json_match.group(1)
                         elif "```" in content:
                             import re
-                            json_match = re.search(r"```\n(.*?)\n```", content, re.DOTALL)
+
+                            json_match = re.search(
+                                r"```\n(.*?)\n```", content, re.DOTALL
+                            )
                             if json_match:
                                 content = json_match.group(1)
 
@@ -300,8 +340,12 @@ Examples:
             console.print(f"[red]Error generating command: {e}[/red]")
             active_provider = self.config_manager.get_active_provider()
             if active_provider:
-                console.print(f"[yellow]Active provider: {active_provider}, Model: {model}[/yellow]")
-            console.print("[yellow]Please check your API key and provider configuration.[/yellow]")
+                console.print(
+                    f"[yellow]Active provider: {active_provider}, Model: {model}[/yellow]"
+                )
+            console.print(
+                "[yellow]Please check your API key and provider configuration.[/yellow]"
+            )
             sys.exit(1)
 
     def refine_command(
@@ -364,7 +408,9 @@ Provide {count} distinct approaches, each with different flags, tools, or method
 
             model = model or self.config_manager.get_active_model()
             temperature = self.config_manager.get("temperature", 0.3)
-            max_tokens = self.config_manager.get("max_tokens", 500)  # More tokens for multiple commands
+            max_tokens = self.config_manager.get(
+                "max_tokens", 500
+            )  # More tokens for multiple commands
 
             with console.status("[bold green]Generating alternatives..."):
                 response = litellm.completion(
@@ -372,13 +418,15 @@ Provide {count} distinct approaches, each with different flags, tools, or method
                     messages=[
                         {
                             "role": "system",
-                            "content": self.SYSTEM_PROMPT + "\n\nYou must respond with a valid JSON object containing an 'alternatives' array of command objects, each with: command, is_safe, safety_level, and explanation."
+                            "content": self.SYSTEM_PROMPT
+                            + "\n\nYou must respond with a valid JSON object containing an 'alternatives' array of command objects, each with: command, is_safe, safety_level, and explanation.",
                         },
-                        {"role": "user", "content": alternatives_prompt}
+                        {"role": "user", "content": alternatives_prompt},
                     ],
                     response_format={"type": "json_object"},
-                    temperature=temperature + 0.2,  # Slightly higher temperature for variety
-                    max_tokens=max_tokens
+                    temperature=temperature
+                    + 0.2,  # Slightly higher temperature for variety
+                    max_tokens=max_tokens,
                 )
 
                 content = response.choices[0].message.content.strip()
@@ -406,14 +454,18 @@ Provide {count} distinct approaches, each with different flags, tools, or method
                     except ValueError:
                         # Fallback: use is_safe to determine safety_level
                         is_safe = alt_data.get("is_safe", False)
-                        safety_level = SafetyLevel.SAFE if is_safe else SafetyLevel.MODIFYING
+                        safety_level = (
+                            SafetyLevel.SAFE if is_safe else SafetyLevel.MODIFYING
+                        )
 
-                    alternatives.append(CommandResponse(
-                        command=alt_data.get("command", ""),
-                        is_safe=alt_data.get("is_safe", False),
-                        safety_level=safety_level,
-                        explanation=alt_data.get("explanation")
-                    ))
+                    alternatives.append(
+                        CommandResponse(
+                            command=alt_data.get("command", ""),
+                            is_safe=alt_data.get("is_safe", False),
+                            safety_level=safety_level,
+                            explanation=alt_data.get("explanation"),
+                        )
+                    )
 
                 return alternatives
         except Exception as e:
@@ -467,13 +519,14 @@ If it's a simple single command, return it as a single-item array."""
                     messages=[
                         {
                             "role": "system",
-                            "content": self.SYSTEM_PROMPT + "\n\nYou must respond with a valid JSON object containing commands array, execution_type, combined_command, overall_safe, and explanation."
+                            "content": self.SYSTEM_PROMPT
+                            + "\n\nYou must respond with a valid JSON object containing commands array, execution_type, combined_command, overall_safe, and explanation.",
                         },
-                        {"role": "user", "content": multi_prompt}
+                        {"role": "user", "content": multi_prompt},
                     ],
                     response_format={"type": "json_object"},
                     temperature=temperature,
-                    max_tokens=max_tokens
+                    max_tokens=max_tokens,
                 )
 
                 content = response.choices[0].message.content.strip()
@@ -484,29 +537,41 @@ If it's a simple single command, return it as a single-item array."""
                 if not commands_data:
                     # Fallback: treat as single command
                     single_cmd = self.generate_command(query, model=model)
-                    commands_data = [single_cmd.to_dict() if hasattr(single_cmd, 'to_dict') else {
-                        "command": single_cmd.command,
-                        "is_safe": single_cmd.is_safe,
-                        "safety_level": single_cmd.safety_level.value,
-                        "explanation": single_cmd.explanation,
-                    }]
+                    commands_data = [
+                        (
+                            single_cmd.to_dict()
+                            if hasattr(single_cmd, "to_dict")
+                            else {
+                                "command": single_cmd.command,
+                                "is_safe": single_cmd.is_safe,
+                                "safety_level": single_cmd.safety_level.value,
+                                "explanation": single_cmd.explanation,
+                            }
+                        )
+                    ]
 
                 commands = []
                 for cmd_data in commands_data:
                     if isinstance(cmd_data, str):
                         # If it's just a string, create a basic CommandResponse
-                        commands.append(CommandResponse(
-                            command=cmd_data,
-                            is_safe=False,  # Assume unsafe if we don't know
-                            safety_level=SafetyLevel.MODIFYING,
-                        ))
+                        commands.append(
+                            CommandResponse(
+                                command=cmd_data,
+                                is_safe=False,  # Assume unsafe if we don't know
+                                safety_level=SafetyLevel.MODIFYING,
+                            )
+                        )
                     else:
-                        commands.append(CommandResponse(
-                            command=cmd_data.get("command", ""),
-                            is_safe=cmd_data.get("is_safe", False),
-                            safety_level=SafetyLevel(cmd_data.get("safety_level", "modifying")),
-                            explanation=cmd_data.get("explanation"),
-                        ))
+                        commands.append(
+                            CommandResponse(
+                                command=cmd_data.get("command", ""),
+                                is_safe=cmd_data.get("is_safe", False),
+                                safety_level=SafetyLevel(
+                                    cmd_data.get("safety_level", "modifying")
+                                ),
+                                explanation=cmd_data.get("explanation"),
+                            )
+                        )
 
                 overall_safe = all(cmd.is_safe for cmd in commands)
 
@@ -591,8 +656,21 @@ If it's a simple single command, return it as a single-item array."""
             return
 
         # Detect if query needs multi-command support
-        multi_keywords = [" and ", " then ", " after ", " before ", " followed by ", " pipe ", " | ", " chain "]
-        is_multi = any(keyword in query.lower() for keyword in multi_keywords) or "list" in query.lower() and "count" in query.lower()
+        multi_keywords = [
+            " and ",
+            " then ",
+            " after ",
+            " before ",
+            " followed by ",
+            " pipe ",
+            " | ",
+            " chain ",
+        ]
+        is_multi = (
+            any(keyword in query.lower() for keyword in multi_keywords)
+            or "list" in query.lower()
+            and "count" in query.lower()
+        )
 
         if is_multi and not refine and not alternatives:
             # Use multi-command generation
@@ -603,11 +681,16 @@ If it's a simple single command, return it as a single-item array."""
                 from rich.table import Table
                 from rich.text import Text
 
-                console.print(Panel(
-                    multi_response.combined_command or " && ".join(cmd.command for cmd in multi_response.commands),
-                    title=f"[bold]Multi-Command ({multi_response.execution_type})[/bold]",
-                    border_style="green" if multi_response.overall_safe else "yellow"
-                ))
+                console.print(
+                    Panel(
+                        multi_response.combined_command
+                        or " && ".join(cmd.command for cmd in multi_response.commands),
+                        title=f"[bold]Multi-Command ({multi_response.execution_type})[/bold]",
+                        border_style=(
+                            "green" if multi_response.overall_safe else "yellow"
+                        ),
+                    )
+                )
 
                 if multi_response.explanation:
                     console.print(f"[dim]{multi_response.explanation}[/dim]")
@@ -630,11 +713,17 @@ If it's a simple single command, return it as a single-item array."""
 
                 console.print(table)
 
-                command = multi_response.combined_command or " && ".join(cmd.command for cmd in multi_response.commands)
+                command = multi_response.combined_command or " && ".join(
+                    cmd.command for cmd in multi_response.commands
+                )
                 command_response = CommandResponse(
                     command=command,
                     is_safe=multi_response.overall_safe,
-                    safety_level=SafetyLevel.SAFE if multi_response.overall_safe else SafetyLevel.MODIFYING,
+                    safety_level=(
+                        SafetyLevel.SAFE
+                        if multi_response.overall_safe
+                        else SafetyLevel.MODIFYING
+                    ),
                     explanation=multi_response.explanation,
                 )
             else:
@@ -650,13 +739,12 @@ If it's a simple single command, return it as a single-item array."""
         if refine:
             console.print("[bold cyan]Refinement Mode[/bold cyan]")
             console.print(f"[dim]Current command: {command}[/dim]\n")
-            refinement = click.prompt("How would you like to refine this command? (or 'done' to finish)")
+            refinement = click.prompt(
+                "How would you like to refine this command? (or 'done' to finish)"
+            )
             if refinement.lower() != "done":
                 command_response = self.refine_command(
-                    query,
-                    refinement,
-                    original_command=command,
-                    model=model
+                    query, refinement, original_command=command, model=model
                 )
                 command = command_response.command
                 console.print(f"[green]Refined command: {command}[/green]\n")
@@ -667,23 +755,23 @@ If it's a simple single command, return it as a single-item array."""
             import tempfile
 
             # Create temp file with command
-            with tempfile.NamedTemporaryFile(mode='w', suffix='.sh', delete=False) as f:
+            with tempfile.NamedTemporaryFile(mode="w", suffix=".sh", delete=False) as f:
                 f.write(f"#!/bin/bash\n{command}\n")
                 temp_path = f.name
 
             try:
                 # Open in editor
-                editor = os.getenv('EDITOR', 'nano')
+                editor = os.getenv("EDITOR", "nano")
                 os.system(f"{editor} {temp_path}")
 
                 # Read edited command
                 with open(temp_path) as f:
                     lines = f.readlines()
                     # Skip shebang if present
-                    if lines and lines[0].startswith('#!'):
-                        edited_command = ''.join(lines[1:]).strip()
+                    if lines and lines[0].startswith("#!"):
+                        edited_command = "".join(lines[1:]).strip()
                     else:
-                        edited_command = ''.join(lines).strip()
+                        edited_command = "".join(lines).strip()
 
                 if edited_command and edited_command != command:
                     command = edited_command
@@ -697,7 +785,9 @@ If it's a simple single command, return it as a single-item array."""
             title = "[bold green]Generated Command (Safe - Read Only)[/bold green]"
         else:
             panel_style = "yellow"
-            title = "[bold yellow]Generated Command (⚠️  Will Modify System)[/bold yellow]"
+            title = (
+                "[bold yellow]Generated Command (⚠️  Will Modify System)[/bold yellow]"
+            )
 
         # Display the command in a nice panel
         console.print(Panel(command, title=title, border_style=panel_style))
@@ -708,37 +798,47 @@ If it's a simple single command, return it as a single-item array."""
 
         # Show safety warning for modifying commands
         if not command_response.is_safe and not force:
-            console.print("\n[bold yellow]⚠️  Warning: This command will modify your system![/bold yellow]")
-            console.print("[yellow]It may write files, change configuration, or alter system state.[/yellow]")
+            console.print(
+                "\n[bold yellow]⚠️  Warning: This command will modify your system![/bold yellow]"
+            )
+            console.print(
+                "[yellow]It may write files, change configuration, or alter system state.[/yellow]"
+            )
             if execute:
-                console.print("[yellow]Review the command above before it executes.[/yellow]\n")
+                console.print(
+                    "[yellow]Review the command above before it executes.[/yellow]\n"
+                )
             else:
-                console.print("[yellow]Review the command carefully before executing it.[/yellow]\n")
+                console.print(
+                    "[yellow]Review the command carefully before executing it.[/yellow]\n"
+                )
 
         # Copy to clipboard if requested
         if copy:
             if copy_to_clipboard(command):
                 console.print("[dim](Command copied to clipboard)[/dim]")
             else:
-                console.print("[yellow]Warning: Could not copy to clipboard. Install xclip or xsel (e.g., 'sudo apt install xclip' or 'sudo apt install xsel').[/yellow]")
+                console.print(
+                    "[yellow]Warning: Could not copy to clipboard. Install xclip or xsel (e.g., 'sudo apt install xclip' or 'sudo apt install xsel').[/yellow]"
+                )
 
         # Execute if requested
         if execute:
             # Additional safety check for modifying commands
             if not command_response.is_safe and not force:
-                console.print("[bold red]⚠️  Safety Check Failed: This command will modify your system![/bold red]")
-                console.print("[red]Use --force flag to execute modifying commands.[/red]")
+                console.print(
+                    "[bold red]⚠️  Safety Check Failed: This command will modify your system![/bold red]"
+                )
+                console.print(
+                    "[red]Use --force flag to execute modifying commands.[/red]"
+                )
                 console.print(f"[dim]Command: {command}[/dim]")
                 sys.exit(1)
 
             console.print(f"\n[bold yellow]Executing:[/bold yellow] {command}\n")
             return_code = None
             try:
-                result = subprocess.run(
-                    command,
-                    shell=True,
-                    check=False
-                )
+                result = subprocess.run(command, shell=True, check=False)
                 return_code = result.returncode
                 # Save to history with execution info
                 self.history_manager.add_entry(
@@ -799,7 +899,11 @@ If it's a simple single command, return it as a single-item array."""
         """
         try:
             with open(queries_file) as f:
-                queries = [line.strip() for line in f if line.strip() and not line.startswith('#')]
+                queries = [
+                    line.strip()
+                    for line in f
+                    if line.strip() and not line.startswith("#")
+                ]
         except FileNotFoundError:
             console.print(f"[red]Error: File '{queries_file}' not found.[/red]")
             sys.exit(1)
@@ -821,4 +925,3 @@ If it's a simple single command, return it as a single-item array."""
             except (Exception, SystemExit) as e:
                 console.print(f"[red]Error processing query: {e}[/red]\n")
                 continue
-

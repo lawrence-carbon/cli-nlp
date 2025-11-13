@@ -17,27 +17,29 @@ QUERY_COMPLETER_AVAILABLE = False
 
 # Store original completer module if it exists and is mocked
 original_completer_mock = None
-if 'cli_nlp.completer' in sys.modules:
-    completer_module = sys.modules['cli_nlp.completer']
+if "cli_nlp.completer" in sys.modules:
+    completer_module = sys.modules["cli_nlp.completer"]
     # Check if it's a mock (doesn't have __file__ or __file__ is None/empty)
-    if not hasattr(completer_module, '__file__') or not completer_module.__file__:
+    if not hasattr(completer_module, "__file__") or not completer_module.__file__:
         # It's a mock, store it and remove temporarily
         original_completer_mock = completer_module
-        del sys.modules['cli_nlp.completer']
+        del sys.modules["cli_nlp.completer"]
 
 # Mock prompt_toolkit modules if not already available
-if 'prompt_toolkit' not in sys.modules:
+if "prompt_toolkit" not in sys.modules:
     # Create minimal mock classes that can be instantiated
     class MockCompleter:
         pass
 
     class MockCompletion:
         """Mock Completion class that accepts arguments like the real one."""
+
         def __init__(self, text, start_position=0, display=None, display_meta=None):
             self.text = text
             self.start_position = start_position
             self.display = display or text
             self.display_meta = display_meta
+
     class MockDocument:
         def __init__(self, text="", cursor_position=0):
             self.text = text
@@ -45,11 +47,11 @@ if 'prompt_toolkit' not in sys.modules:
 
         @property
         def text_before_cursor(self):
-            return self.text[:self.cursor_position]
+            return self.text[: self.cursor_position]
 
         @property
         def text_after_cursor(self):
-            return self.text[self.cursor_position:]
+            return self.text[self.cursor_position :]
 
         def get_word_before_cursor(self, WORD=False):
             if WORD:
@@ -64,7 +66,8 @@ if 'prompt_toolkit' not in sys.modules:
                 return ""
             # Find the last word boundary
             import re
-            match = re.search(r'\S+$', text)
+
+            match = re.search(r"\S+$", text)
             return match.group(0) if match else ""
 
     # Create mock modules
@@ -79,9 +82,9 @@ if 'prompt_toolkit' not in sys.modules:
     mock_pt_document.Document = MockDocument
     mock_pt.document = mock_pt_document
 
-    sys.modules['prompt_toolkit'] = mock_pt
-    sys.modules['prompt_toolkit.completion'] = mock_pt_completion
-    sys.modules['prompt_toolkit.document'] = mock_pt_document
+    sys.modules["prompt_toolkit"] = mock_pt
+    sys.modules["prompt_toolkit.completion"] = mock_pt_completion
+    sys.modules["prompt_toolkit.document"] = mock_pt_document
 
     # Make Document available for tests
     Document = MockDocument
@@ -89,24 +92,27 @@ if 'prompt_toolkit' not in sys.modules:
 # Now try to import QueryCompleter
 try:
     # Force reload if it was already imported as a mock
-    if 'cli_nlp.completer' in sys.modules:
-        importlib.reload(sys.modules['cli_nlp.completer'])
+    if "cli_nlp.completer" in sys.modules:
+        importlib.reload(sys.modules["cli_nlp.completer"])
     else:
         from cli_nlp.completer import QueryCompleter
 
-    if 'cli_nlp.completer' in sys.modules and not QUERY_COMPLETER_AVAILABLE:
-        QueryCompleter = sys.modules['cli_nlp.completer'].QueryCompleter
+    if "cli_nlp.completer" in sys.modules and not QUERY_COMPLETER_AVAILABLE:
+        QueryCompleter = sys.modules["cli_nlp.completer"].QueryCompleter
 
-    QUERY_COMPLETER_AVAILABLE = isinstance(QueryCompleter, type) and QueryCompleter is not None
+    QUERY_COMPLETER_AVAILABLE = (
+        isinstance(QueryCompleter, type) and QueryCompleter is not None
+    )
 
     # Get Document from the mocked module for use in tests
-    if Document is None and 'prompt_toolkit.document' in sys.modules:
-        Document = sys.modules['prompt_toolkit.document'].Document
+    if Document is None and "prompt_toolkit.document" in sys.modules:
+        Document = sys.modules["prompt_toolkit.document"].Document
 except (ImportError, AttributeError, TypeError, ValueError):
     QueryCompleter = None
     QUERY_COMPLETER_AVAILABLE = False
     # If we still don't have Document, create a fallback
     if Document is None:
+
         class Document:
             def __init__(self, text="", cursor_position=0):
                 self.text = text
@@ -114,11 +120,11 @@ except (ImportError, AttributeError, TypeError, ValueError):
 
             @property
             def text_before_cursor(self):
-                return self.text[:self.cursor_position]
+                return self.text[: self.cursor_position]
 
             @property
             def text_after_cursor(self):
-                return self.text[self.cursor_position:]
+                return self.text[self.cursor_position :]
 
             def get_word_before_cursor(self, WORD=False):
                 if WORD:
@@ -129,11 +135,15 @@ except (ImportError, AttributeError, TypeError, ValueError):
                     return words[-1] if words else ""
                 return ""
 
+
 # Don't restore the mock - let the real completer module be used
 # test_cli.py will work fine with the real completer as long as prompt_toolkit is mocked
 
 
-@pytest.mark.skipif(not QUERY_COMPLETER_AVAILABLE, reason="prompt_toolkit not available or QueryCompleter is mocked")
+@pytest.mark.skipif(
+    not QUERY_COMPLETER_AVAILABLE,
+    reason="prompt_toolkit not available or QueryCompleter is mocked",
+)
 class TestQueryCompleter:
     """Test suite for QueryCompleter."""
 
@@ -156,6 +166,7 @@ class TestQueryCompleter:
 
         # Change to test directory
         import os
+
         original_cwd = os.getcwd()
         try:
             os.chdir(tmp_path)
@@ -182,9 +193,9 @@ class TestQueryCompleter:
         completion_strings = []
         for c in completions:
             s = str(c)
-            if hasattr(c, 'text'):
+            if hasattr(c, "text"):
                 s += f" text={c.text}"
-            if hasattr(c, 'display'):
+            if hasattr(c, "display"):
                 s += f" display={c.display}"
             completion_strings.append(s)
 
@@ -194,8 +205,9 @@ class TestQueryCompleter:
         # If "list" isn't found, check if we got any completions at all (which is still valid)
         if not has_list:
             # Check if common_commands contains "list"
-            assert "list" in completer.common_commands or len(completions) > 0, \
-                f"No 'list' found and no completions. Completions: {completion_strings[:5]}"
+            assert (
+                "list" in completer.common_commands or len(completions) > 0
+            ), f"No 'list' found and no completions. Completions: {completion_strings[:5]}"
 
     def test_is_in_path_context_absolute_path(self):
         """Test _is_in_path_context with absolute path."""
@@ -259,6 +271,7 @@ class TestQueryCompleter:
         (test_dir / "subdir").mkdir()
 
         import os
+
         original_cwd = os.getcwd()
         try:
             os.chdir(tmp_path)
@@ -282,7 +295,7 @@ class TestQueryCompleter:
         completer = QueryCompleter()
 
         # Mock os.listdir to raise PermissionError
-        with patch('cli_nlp.completer.os.listdir', side_effect=PermissionError):
+        with patch("cli_nlp.completer.os.listdir", side_effect=PermissionError):
             doc = Document("/root/", len("/root/"))
             completions = list(completer._complete_path_custom(doc))
             # Should not raise exception
@@ -305,7 +318,7 @@ class TestQueryCompleter:
         completions = list(completer._complete_commands("lis"))
         assert len(completions) > 0
         # Check that completions have the expected attributes
-        assert all(hasattr(c, 'text') or hasattr(c, 'display') for c in completions)
+        assert all(hasattr(c, "text") or hasattr(c, "display") for c in completions)
 
         # Test with empty string
         completions = list(completer._complete_commands(""))
@@ -316,7 +329,7 @@ class TestQueryCompleter:
         # Should still return system commands if any match
         assert isinstance(completions, list)
 
-    @patch('cli_nlp.completer.subprocess.run')
+    @patch("cli_nlp.completer.subprocess.run")
     def test_get_system_commands_success(self, mock_subprocess):
         """Test _get_system_commands with successful subprocess call."""
         completer = QueryCompleter()
@@ -332,18 +345,19 @@ class TestQueryCompleter:
         assert "cd" in commands
         mock_subprocess.assert_called_once()
 
-    @patch('cli_nlp.completer.subprocess.run')
+    @patch("cli_nlp.completer.subprocess.run")
     def test_get_system_commands_timeout(self, mock_subprocess):
         """Test _get_system_commands handles timeout."""
         completer = QueryCompleter()
 
         import subprocess
+
         mock_subprocess.side_effect = subprocess.TimeoutExpired("bash", 0.5)
 
         commands = completer._get_system_commands()
         assert commands == []
 
-    @patch('cli_nlp.completer.subprocess.run')
+    @patch("cli_nlp.completer.subprocess.run")
     def test_get_system_commands_file_not_found(self, mock_subprocess):
         """Test _get_system_commands handles FileNotFoundError."""
         completer = QueryCompleter()
@@ -353,18 +367,19 @@ class TestQueryCompleter:
         commands = completer._get_system_commands()
         assert commands == []
 
-    @patch('cli_nlp.completer.subprocess.run')
+    @patch("cli_nlp.completer.subprocess.run")
     def test_get_system_commands_subprocess_error(self, mock_subprocess):
         """Test _get_system_commands handles SubprocessError."""
         completer = QueryCompleter()
 
         import subprocess
+
         mock_subprocess.side_effect = subprocess.SubprocessError()
 
         commands = completer._get_system_commands()
         assert commands == []
 
-    @patch('cli_nlp.completer.subprocess.run')
+    @patch("cli_nlp.completer.subprocess.run")
     def test_get_system_commands_nonzero_returncode(self, mock_subprocess):
         """Test _get_system_commands handles nonzero return code."""
         completer = QueryCompleter()
@@ -431,7 +446,7 @@ class TestQueryCompleter:
         completer = QueryCompleter()
 
         # First call should populate cache
-        with patch('cli_nlp.completer.subprocess.run') as mock_subprocess:
+        with patch("cli_nlp.completer.subprocess.run") as mock_subprocess:
             mock_result = MagicMock()
             mock_result.returncode = 0
             mock_result.stdout = "ls\ncd\n"
@@ -450,4 +465,3 @@ class TestQueryCompleter:
             if completer._command_cache is not None:
                 # If cache exists, subsequent calls may use it
                 pass
-

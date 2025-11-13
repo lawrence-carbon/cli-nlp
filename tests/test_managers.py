@@ -80,11 +80,15 @@ class TestConfigManager:
     def test_get_api_key_from_env(self, temp_dir, monkeypatch):
         """Test getting API key from environment variable."""
         config_file = temp_dir / "config.json"
-        config_file.write_text(json.dumps({
-            "providers": {},
-            "active_provider": "openai",
-            "active_model": "gpt-4o-mini"
-        }))
+        config_file.write_text(
+            json.dumps(
+                {
+                    "providers": {},
+                    "active_provider": "openai",
+                    "active_model": "gpt-4o-mini",
+                }
+            )
+        )
 
         manager = ConfigManager()
         monkeypatch.setattr(manager, "config_path", config_file)
@@ -100,7 +104,7 @@ class TestConfigManager:
         old_config = {
             "openai_api_key": "old-key-123",
             "default_model": "gpt-4",
-            "temperature": 0.5
+            "temperature": 0.5,
         }
         config_file.write_text(json.dumps(old_config))
 
@@ -134,11 +138,15 @@ class TestConfigManager:
     def test_add_provider(self, temp_dir, monkeypatch):
         """Test adding a provider."""
         config_file = temp_dir / "config.json"
-        config_file.write_text(json.dumps({
-            "providers": {},
-            "active_provider": None,
-            "active_model": "gpt-4o-mini"
-        }))
+        config_file.write_text(
+            json.dumps(
+                {
+                    "providers": {},
+                    "active_provider": None,
+                    "active_model": "gpt-4o-mini",
+                }
+            )
+        )
 
         manager = ConfigManager()
         monkeypatch.setattr(manager, "config_path", config_file)
@@ -188,11 +196,15 @@ class TestConfigManager:
     def test_get_config_value_default(self, temp_dir, monkeypatch):
         """Test getting config value with default."""
         config_file = temp_dir / "config.json"
-        config_file.write_text(json.dumps({
-            "providers": {},
-            "active_provider": None,
-            "active_model": "gpt-4o-mini"
-        }))
+        config_file.write_text(
+            json.dumps(
+                {
+                    "providers": {},
+                    "active_provider": None,
+                    "active_model": "gpt-4o-mini",
+                }
+            )
+        )
 
         manager = ConfigManager()
         monkeypatch.setattr(manager, "config_path", config_file)
@@ -587,4 +599,3 @@ class TestContextManager:
         assert "environment" in context
         assert "filesystem" in context
         assert "shell" in context
-

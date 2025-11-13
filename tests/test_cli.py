@@ -619,16 +619,18 @@ class TestCLI:
         mock_pt_keybinding = MagicMock()
         mock_pt_keybinding.KeyBindings = MagicMock()
 
-        with patch.dict(
-            "sys.modules",
-            {
-                "prompt_toolkit": mock_pt_module,
-                "prompt_toolkit.history": mock_pt_history,
-                "prompt_toolkit.auto_suggest": mock_pt_autosuggest,
-                "prompt_toolkit.key_binding": mock_pt_keybinding,
-            },
-        ), patch("cli_nlp.cli.os.makedirs"), patch(
-            "cli_nlp.cli.os.path.expanduser", return_value="~/.cli_nlp_history"
+        with (
+            patch.dict(
+                "sys.modules",
+                {
+                    "prompt_toolkit": mock_pt_module,
+                    "prompt_toolkit.history": mock_pt_history,
+                    "prompt_toolkit.auto_suggest": mock_pt_autosuggest,
+                    "prompt_toolkit.key_binding": mock_pt_keybinding,
+                },
+            ),
+            patch("cli_nlp.cli.os.makedirs"),
+            patch("cli_nlp.cli.os.path.expanduser", return_value="~/.cli_nlp_history"),
         ):
             result = _interactive_query()
             assert result == "test query"
@@ -652,16 +654,18 @@ class TestCLI:
         mock_pt_keybinding = MagicMock()
         mock_pt_keybinding.KeyBindings = MagicMock()
 
-        with patch.dict(
-            "sys.modules",
-            {
-                "prompt_toolkit": mock_pt_module,
-                "prompt_toolkit.history": mock_pt_history,
-                "prompt_toolkit.auto_suggest": mock_pt_autosuggest,
-                "prompt_toolkit.key_binding": mock_pt_keybinding,
-            },
-        ), patch("cli_nlp.cli.os.makedirs"), patch(
-            "cli_nlp.cli.os.path.expanduser", return_value="~/.cli_nlp_history"
+        with (
+            patch.dict(
+                "sys.modules",
+                {
+                    "prompt_toolkit": mock_pt_module,
+                    "prompt_toolkit.history": mock_pt_history,
+                    "prompt_toolkit.auto_suggest": mock_pt_autosuggest,
+                    "prompt_toolkit.key_binding": mock_pt_keybinding,
+                },
+            ),
+            patch("cli_nlp.cli.os.makedirs"),
+            patch("cli_nlp.cli.os.path.expanduser", return_value="~/.cli_nlp_history"),
         ):
             result = _interactive_query()
             assert result == ""
@@ -685,16 +689,18 @@ class TestCLI:
         mock_pt_keybinding = MagicMock()
         mock_pt_keybinding.KeyBindings = MagicMock()
 
-        with patch.dict(
-            "sys.modules",
-            {
-                "prompt_toolkit": mock_pt_module,
-                "prompt_toolkit.history": mock_pt_history,
-                "prompt_toolkit.auto_suggest": mock_pt_autosuggest,
-                "prompt_toolkit.key_binding": mock_pt_keybinding,
-            },
-        ), patch("cli_nlp.cli.os.makedirs"), patch(
-            "cli_nlp.cli.os.path.expanduser", return_value="~/.cli_nlp_history"
+        with (
+            patch.dict(
+                "sys.modules",
+                {
+                    "prompt_toolkit": mock_pt_module,
+                    "prompt_toolkit.history": mock_pt_history,
+                    "prompt_toolkit.auto_suggest": mock_pt_autosuggest,
+                    "prompt_toolkit.key_binding": mock_pt_keybinding,
+                },
+            ),
+            patch("cli_nlp.cli.os.makedirs"),
+            patch("cli_nlp.cli.os.path.expanduser", return_value="~/.cli_nlp_history"),
         ):
             result = _interactive_query()
             assert result == ""

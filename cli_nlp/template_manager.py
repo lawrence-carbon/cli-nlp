@@ -42,13 +42,15 @@ class TemplateManager:
     def _save_templates(self):
         """Save templates to file."""
         try:
-            with open(self.templates_path, 'w') as f:
+            with open(self.templates_path, "w") as f:
                 json.dump(self._templates, f, indent=2)
         except Exception:
             # Silently fail if we can't save templates
             pass
 
-    def save_template(self, name: str, command: str, description: str | None = None) -> bool:
+    def save_template(
+        self, name: str, command: str, description: str | None = None
+    ) -> bool:
         """
         Save a command template.
 
@@ -92,4 +94,3 @@ class TemplateManager:
     def template_exists(self, name: str) -> bool:
         """Check if a template exists."""
         return name in self._templates
-

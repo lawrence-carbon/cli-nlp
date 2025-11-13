@@ -130,9 +130,9 @@ class CacheManager:
                     valid_cache.items(),
                     key=lambda x: x[1]["timestamp"],
                 )
-                valid_cache = dict(sorted_entries[-self.max_size:])
+                valid_cache = dict(sorted_entries[-self.max_size :])
 
-            with open(self.cache_path, 'w') as f:
+            with open(self.cache_path, "w") as f:
                 json.dump(valid_cache, f, indent=2)
         except Exception:
             # Silently fail if we can't save cache
@@ -190,7 +190,7 @@ class CacheManager:
                 self._cache.items(),
                 key=lambda x: x[1].timestamp,
             )
-            self._cache = dict(sorted_entries[-self.max_size:])
+            self._cache = dict(sorted_entries[-self.max_size :])
 
         self._save_cache()
 
@@ -202,11 +202,7 @@ class CacheManager:
     def get_stats(self) -> dict[str, int]:
         """Get cache statistics."""
         total = self._stats["hits"] + self._stats["misses"]
-        hit_rate = (
-            self._stats["hits"] / total * 100
-            if total > 0
-            else 0.0
-        )
+        hit_rate = self._stats["hits"] / total * 100 if total > 0 else 0.0
 
         return {
             "hits": self._stats["hits"],
@@ -215,4 +211,3 @@ class CacheManager:
             "hit_rate": round(hit_rate, 2),
             "entries": len(self._cache),
         }
-

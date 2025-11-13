@@ -13,6 +13,7 @@ except ImportError:
 
 class ProviderDiscoveryError(Exception):
     """Raised when provider/model discovery fails."""
+
     pass
 
 
@@ -45,7 +46,7 @@ def _save_cached_providers(provider_models: dict[str, list[str]]):
     """Save provider/model data to cache."""
     cache_path = _get_cache_path()
     try:
-        with open(cache_path, 'w') as f:
+        with open(cache_path, "w") as f:
             json.dump(provider_models, f, indent=2)
     except Exception:
         pass  # Silently fail if cache can't be saved
@@ -59,7 +60,7 @@ def _fetch_from_litellm() -> dict[str, list[str]]:
         )
 
     # Access LiteLLM's model registry
-    if not hasattr(litellm, 'models_by_provider'):
+    if not hasattr(litellm, "models_by_provider"):
         raise ProviderDiscoveryError(
             "LiteLLM models_by_provider not available. Please ensure you have a compatible version of LiteLLM installed."
         )
@@ -83,15 +84,17 @@ def _fetch_from_litellm() -> dict[str, list[str]]:
             provider_normalized = provider.lower()
 
             # Skip some internal/duplicate providers
-            if provider_normalized in ['custom_provider', 'custom_llm_provider']:
+            if provider_normalized in ["custom_provider", "custom_llm_provider"]:
                 continue
 
             # Skip text-completion variants (they're usually duplicates)
-            if provider_normalized.startswith('text-completion-'):
+            if provider_normalized.startswith("text-completion-"):
                 continue
 
             # Convert models to list if needed and filter
-            model_list = list(models) if isinstance(models, list | set | tuple) else [models]
+            model_list = (
+                list(models) if isinstance(models, list | set | tuple) else [models]
+            )
 
             # Deduplicate and sort models
             unique_models = sorted(set(model_list))
@@ -129,7 +132,7 @@ def _fetch_from_openai_api() -> list[str] | None:
         response = requests.get(
             "https://api.openai.com/v1/models",
             headers={"Authorization": f"Bearer {api_key}"},
-            timeout=5
+            timeout=5,
         )
 
         if response.status_code == 200:
@@ -138,7 +141,11 @@ def _fetch_from_openai_api() -> list[str] | None:
             for model in data.get("data", []):
                 model_id = model.get("id", "")
                 # Filter for chat models
-                if "gpt" in model_id.lower() and ("chat" in model_id.lower() or "gpt-4" in model_id.lower() or "gpt-3.5" in model_id.lower()):
+                if "gpt" in model_id.lower() and (
+                    "chat" in model_id.lower()
+                    or "gpt-4" in model_id.lower()
+                    or "gpt-3.5" in model_id.lower()
+                ):
                     models.append(model_id)
             return sorted(models)
     except Exception:
@@ -202,9 +209,7 @@ def get_available_providers() -> list[str]:
     except ProviderDiscoveryError:
         raise
     except Exception as e:
-        raise ProviderDiscoveryError(
-            f"Failed to get available providers: {e}"
-        ) from e
+        raise ProviderDiscoveryError(f"Failed to get available providers: {e}") from e
 
 
 def get_provider_models(provider: str) -> list[str]:
@@ -232,7 +237,9 @@ def get_model_provider(model: str) -> str | None:
     # Check each provider's models
     for provider, models in provider_models.items():
         for provider_model in models:
-            if model_lower == provider_model.lower() or model_lower.startswith(f"{provider}/"):
+            if model_lower == provider_model.lower() or model_lower.startswith(
+                f"{provider}/"
+            ):
                 return provider
 
     # Check if model has provider prefix
@@ -244,7 +251,7 @@ def get_model_provider(model: str) -> str | None:
     # Try to infer from LiteLLM if available
     if litellm:
         try:
-            if hasattr(litellm, 'models_by_provider'):
+            if hasattr(litellm, "models_by_provider"):
                 models_by_provider = litellm.models_by_provider
                 # Search through providers to find which one has this model
                 for provider, models in models_by_provider.items():
@@ -323,4 +330,3 @@ def search_models(provider: str, query: str) -> list[str]:
                 fuzzy_matches.append(model)
 
     return contains_matches + fuzzy_matches
-

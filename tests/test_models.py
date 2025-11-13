@@ -1,6 +1,5 @@
 """Unit tests for Pydantic models."""
 
-
 from cli_nlp.models import CommandResponse, MultiCommandResponse, SafetyLevel
 
 
@@ -130,4 +129,3 @@ class TestMultiCommandResponse:
         )
 
         assert response.overall_safe is False
-

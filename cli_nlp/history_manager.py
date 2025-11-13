@@ -90,9 +90,7 @@ class HistoryManager:
         try:
             with open(self.history_path) as f:
                 data = json.load(f)
-                self._history = [
-                    HistoryEntry.from_dict(entry) for entry in data
-                ]
+                self._history = [HistoryEntry.from_dict(entry) for entry in data]
         except (json.JSONDecodeError, KeyError, ValueError):
             # If history file is corrupted, start fresh
             self._history = []
@@ -100,12 +98,8 @@ class HistoryManager:
     def _save_history(self):
         """Save history to file."""
         try:
-            with open(self.history_path, 'w') as f:
-                json.dump(
-                    [entry.to_dict() for entry in self._history],
-                    f,
-                    indent=2
-                )
+            with open(self.history_path, "w") as f:
+                json.dump([entry.to_dict() for entry in self._history], f, indent=2)
         except Exception:
             # Silently fail if we can't save history
             pass
@@ -135,7 +129,7 @@ class HistoryManager:
 
         # Keep only the most recent entries
         if len(self._history) > self.max_entries:
-            self._history = self._history[-self.max_entries:]
+            self._history = self._history[-self.max_entries :]
 
         self._save_history()
         return entry
@@ -153,8 +147,8 @@ class HistoryManager:
         results = []
         for entry in self._history:
             if (
-                query_lower in entry.query.lower() or
-                query_lower in entry.command.lower()
+                query_lower in entry.query.lower()
+                or query_lower in entry.command.lower()
             ):
                 results.append(entry)
         return list(reversed(results))  # Most recent first
@@ -175,32 +169,38 @@ class HistoryManager:
     def export(self, format: str = "json") -> str:
         """Export history in specified format."""
         if format == "json":
-            return json.dumps(
-                [entry.to_dict() for entry in self._history],
-                indent=2
-            )
+            return json.dumps([entry.to_dict() for entry in self._history], indent=2)
         elif format == "csv":
             import csv
             from io import StringIO
 
             output = StringIO()
             writer = csv.writer(output)
-            writer.writerow([
-                "timestamp", "query", "command", "is_safe", "safety_level",
-                "executed", "return_code", "explanation"
-            ])
+            writer.writerow(
+                [
+                    "timestamp",
+                    "query",
+                    "command",
+                    "is_safe",
+                    "safety_level",
+                    "executed",
+                    "return_code",
+                    "explanation",
+                ]
+            )
             for entry in self._history:
-                writer.writerow([
-                    entry.timestamp.isoformat(),
-                    entry.query,
-                    entry.command,
-                    entry.is_safe,
-                    entry.safety_level.value,
-                    entry.executed,
-                    entry.return_code or "",
-                    entry.explanation or "",
-                ])
+                writer.writerow(
+                    [
+                        entry.timestamp.isoformat(),
+                        entry.query,
+                        entry.command,
+                        entry.is_safe,
+                        entry.safety_level.value,
+                        entry.executed,
+                        entry.return_code or "",
+                        entry.explanation or "",
+                    ]
+                )
             return output.getvalue()
         else:
             raise ValueError(f"Unsupported format: {format}")
-

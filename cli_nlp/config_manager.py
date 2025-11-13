@@ -15,7 +15,7 @@ class ConfigManager:
         "active_provider": None,
         "active_model": "gpt-4o-mini",
         "temperature": 0.3,
-        "max_tokens": 200
+        "max_tokens": 200,
     }
 
     def __init__(self):
@@ -42,7 +42,9 @@ class ConfigManager:
 
         # Check if this is an old config format
         if "openai_api_key" in config and "providers" not in config:
-            console.print("[yellow]Migrating config to new multi-provider format...[/yellow]")
+            console.print(
+                "[yellow]Migrating config to new multi-provider format...[/yellow]"
+            )
 
             # Create new structure
             new_config = {
@@ -50,7 +52,7 @@ class ConfigManager:
                 "active_provider": None,
                 "active_model": config.get("default_model", "gpt-4o-mini"),
                 "temperature": config.get("temperature", 0.3),
-                "max_tokens": config.get("max_tokens", 200)
+                "max_tokens": config.get("max_tokens", 200),
             }
 
             # Migrate OpenAI config if present
@@ -58,7 +60,7 @@ class ConfigManager:
             if openai_key:
                 new_config["providers"]["openai"] = {
                     "api_key": openai_key,
-                    "models": [config.get("default_model", "gpt-4o-mini")]
+                    "models": [config.get("default_model", "gpt-4o-mini")],
                 }
                 new_config["active_provider"] = "openai"
 
@@ -67,7 +69,9 @@ class ConfigManager:
                 self.save(new_config)
                 console.print("[green]Config migration completed.[/green]")
             except Exception as e:
-                console.print(f"[yellow]Warning: Could not save migrated config: {e}[/yellow]")
+                console.print(
+                    f"[yellow]Warning: Could not save migrated config: {e}[/yellow]"
+                )
 
             self._migrated = True
             return new_config
@@ -110,7 +114,7 @@ class ConfigManager:
             config = self.load()
 
         try:
-            with open(self.config_path, 'w') as f:
+            with open(self.config_path, "w") as f:
                 json.dump(config, f, indent=2)
 
             # Set restrictive permissions (read/write for user only)
@@ -123,18 +127,22 @@ class ConfigManager:
     def create_default(self) -> bool:
         """Create a default config file with template."""
         if self.config_path.exists():
-            console.print(f"[yellow]Config file already exists at: {self.config_path}[/yellow]")
+            console.print(
+                f"[yellow]Config file already exists at: {self.config_path}[/yellow]"
+            )
             return False
 
         try:
-            with open(self.config_path, 'w') as f:
+            with open(self.config_path, "w") as f:
                 json.dump(self.DEFAULT_CONFIG, f, indent=2)
 
             # Set restrictive permissions (read/write for user only)
             os.chmod(self.config_path, 0o600)
 
             console.print(f"[green]Created config file at: {self.config_path}[/green]")
-            console.print("[yellow]Run 'qtc config providers set' to configure a provider.[/yellow]")
+            console.print(
+                "[yellow]Run 'qtc config providers set' to configure a provider.[/yellow]"
+            )
             return True
         except Exception as e:
             console.print(f"[red]Error creating config file: {e}[/red]")
@@ -189,13 +197,17 @@ class ConfigManager:
         config = self.load()
 
         if provider_name not in config.get("providers", {}):
-            console.print(f"[red]Error: Provider '{provider_name}' is not configured.[/red]")
+            console.print(
+                f"[red]Error: Provider '{provider_name}' is not configured.[/red]"
+            )
             return False
 
         config["active_provider"] = provider_name
         return self.save(config)
 
-    def add_provider(self, provider_name: str, api_key: str, models: list | None = None) -> bool:
+    def add_provider(
+        self, provider_name: str, api_key: str, models: list | None = None
+    ) -> bool:
         """Add or update a provider configuration."""
         config = self.load()
 
@@ -204,7 +216,7 @@ class ConfigManager:
 
         config["providers"][provider_name] = {
             "api_key": api_key,
-            "models": models or []
+            "models": models or [],
         }
 
         return self.save(config)
@@ -214,7 +226,9 @@ class ConfigManager:
         config = self.load()
 
         if provider_name not in config.get("providers", {}):
-            console.print(f"[red]Error: Provider '{provider_name}' is not configured.[/red]")
+            console.print(
+                f"[red]Error: Provider '{provider_name}' is not configured.[/red]"
+            )
             return False
 
         # If removing active provider, clear active_provider
@@ -228,4 +242,3 @@ class ConfigManager:
         """Get a config value."""
         config = self.load()
         return config.get(key, default)
-

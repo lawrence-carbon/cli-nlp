@@ -23,7 +23,7 @@ class ContextManager:
                 ["git", "rev-parse", "--git-dir"],
                 capture_output=True,
                 text=True,
-                timeout=1
+                timeout=1,
             )
             if result.returncode != 0:
                 return None
@@ -32,10 +32,7 @@ class ContextManager:
 
             # Get git status
             status_result = subprocess.run(
-                ["git", "status", "--short"],
-                capture_output=True,
-                text=True,
-                timeout=1
+                ["git", "status", "--short"], capture_output=True, text=True, timeout=1
             )
             if status_result.returncode == 0:
                 context["status"] = status_result.stdout.strip()
@@ -45,23 +42,24 @@ class ContextManager:
                 ["git", "rev-parse", "--abbrev-ref", "HEAD"],
                 capture_output=True,
                 text=True,
-                timeout=1
+                timeout=1,
             )
             if branch_result.returncode == 0:
                 context["branch"] = branch_result.stdout.strip()
 
             # Get remote info
             remote_result = subprocess.run(
-                ["git", "remote", "-v"],
-                capture_output=True,
-                text=True,
-                timeout=1
+                ["git", "remote", "-v"], capture_output=True, text=True, timeout=1
             )
             if remote_result.returncode == 0:
                 context["remotes"] = remote_result.stdout.strip()
 
             return context if context else None
-        except (subprocess.TimeoutExpired, FileNotFoundError, subprocess.SubprocessError):
+        except (
+            subprocess.TimeoutExpired,
+            FileNotFoundError,
+            subprocess.SubprocessError,
+        ):
             return None
 
     def get_environment_context(self) -> dict[str, str]:
@@ -166,4 +164,3 @@ class ContextManager:
             "filesystem": self.get_filesystem_context(),
             "shell": self.get_shell_context(),
         }
-

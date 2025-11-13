@@ -27,7 +27,10 @@ class TestProviderManager:
             "anthropic": ["claude-3-opus", "claude-3-sonnet"],
         }
 
-        with patch('cli_nlp.provider_manager._get_provider_models_dict', return_value=mock_providers):
+        with patch(
+            "cli_nlp.provider_manager._get_provider_models_dict",
+            return_value=mock_providers,
+        ):
             providers = get_available_providers()
             assert "openai" in providers
             assert "anthropic" in providers
@@ -35,7 +38,10 @@ class TestProviderManager:
 
     def test_get_available_providers_error(self, monkeypatch):
         """Test getting available providers when discovery fails."""
-        with patch('cli_nlp.provider_manager._get_provider_models_dict', side_effect=ProviderDiscoveryError("Test error")):
+        with patch(
+            "cli_nlp.provider_manager._get_provider_models_dict",
+            side_effect=ProviderDiscoveryError("Test error"),
+        ):
             with pytest.raises(ProviderDiscoveryError):
                 get_available_providers()
 
@@ -46,7 +52,10 @@ class TestProviderManager:
             "anthropic": ["claude-3-opus"],
         }
 
-        with patch('cli_nlp.provider_manager._get_provider_models_dict', return_value=mock_providers):
+        with patch(
+            "cli_nlp.provider_manager._get_provider_models_dict",
+            return_value=mock_providers,
+        ):
             models = get_provider_models("openai")
             assert "gpt-4o-mini" in models
             assert "gpt-4o" in models
@@ -54,7 +63,10 @@ class TestProviderManager:
 
     def test_get_provider_models_error(self, monkeypatch):
         """Test getting provider models when discovery fails."""
-        with patch('cli_nlp.provider_manager._get_provider_models_dict', side_effect=ProviderDiscoveryError("Test error")):
+        with patch(
+            "cli_nlp.provider_manager._get_provider_models_dict",
+            side_effect=ProviderDiscoveryError("Test error"),
+        ):
             with pytest.raises(ProviderDiscoveryError):
                 get_provider_models("openai")
 
@@ -64,7 +76,10 @@ class TestProviderManager:
             "openai": ["gpt-4o-mini"],
         }
 
-        with patch('cli_nlp.provider_manager._get_provider_models_dict', return_value=mock_providers):
+        with patch(
+            "cli_nlp.provider_manager._get_provider_models_dict",
+            return_value=mock_providers,
+        ):
             models = get_provider_models("nonexistent")
             assert models == []
 
@@ -87,7 +102,10 @@ class TestProviderManager:
             "anthropic": ["claude-3-opus"],
         }
 
-        with patch('cli_nlp.provider_manager._get_provider_models_dict', return_value=mock_providers):
+        with patch(
+            "cli_nlp.provider_manager._get_provider_models_dict",
+            return_value=mock_providers,
+        ):
             # Formatted model name
             provider = get_model_provider("openai/gpt-4o-mini")
             assert provider == "openai"
@@ -98,7 +116,9 @@ class TestProviderManager:
 
     def test_get_model_provider_default_openai(self):
         """Test getting provider defaults to OpenAI for GPT models."""
-        with patch('cli_nlp.provider_manager._get_provider_models_dict', return_value={}):
+        with patch(
+            "cli_nlp.provider_manager._get_provider_models_dict", return_value={}
+        ):
             provider = get_model_provider("gpt-4")
             assert provider == "openai"
 
@@ -110,7 +130,10 @@ class TestProviderManager:
             "anthropic": ["claude-3-opus"],
             "cohere": ["command"],
         }
-        with patch('cli_nlp.provider_manager._get_provider_models_dict', return_value=mock_providers_dict):
+        with patch(
+            "cli_nlp.provider_manager._get_provider_models_dict",
+            return_value=mock_providers_dict,
+        ):
             # Exact match
             matches = search_providers("openai")
             assert "openai" in matches
@@ -134,7 +157,10 @@ class TestProviderManager:
         mock_providers_dict = {
             "openai": ["gpt-4o-mini", "gpt-4o", "gpt-3.5-turbo"],
         }
-        with patch('cli_nlp.provider_manager._get_provider_models_dict', return_value=mock_providers_dict):
+        with patch(
+            "cli_nlp.provider_manager._get_provider_models_dict",
+            return_value=mock_providers_dict,
+        ):
             # Exact match
             matches = search_models("openai", "gpt-4o-mini")
             assert "gpt-4o-mini" in matches
@@ -163,8 +189,13 @@ class TestProviderManager:
         }
         cache_file.write_text(json.dumps(initial_cache))
 
-        with patch('cli_nlp.provider_manager._get_cache_path', return_value=cache_file), \
-             patch('cli_nlp.provider_manager._fetch_from_litellm', return_value={"openai": ["gpt-4o", "gpt-4o-mini"]}):
+        with (
+            patch("cli_nlp.provider_manager._get_cache_path", return_value=cache_file),
+            patch(
+                "cli_nlp.provider_manager._fetch_from_litellm",
+                return_value={"openai": ["gpt-4o", "gpt-4o-mini"]},
+            ),
+        ):
 
             refresh_provider_cache()
 
@@ -177,4 +208,3 @@ class TestProviderManager:
         error = ProviderDiscoveryError("Test error message")
         assert str(error) == "Test error message"
         assert isinstance(error, Exception)
-

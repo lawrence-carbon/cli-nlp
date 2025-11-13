@@ -91,6 +91,7 @@ def show_help():
 def check_clipboard_available() -> bool:
     """Check if clipboard tools (xclip or xsel) are available."""
     import shutil
+
     return shutil.which("xclip") is not None or shutil.which("xsel") is not None
 
 
@@ -109,7 +110,7 @@ def copy_to_clipboard(command: str) -> bool:
             input=command.encode(),
             check=True,
             stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL
+            stderr=subprocess.DEVNULL,
         )
         return True
     except (subprocess.CalledProcessError, FileNotFoundError):
@@ -120,9 +121,8 @@ def copy_to_clipboard(command: str) -> bool:
                 input=command.encode(),
                 check=True,
                 stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL
+                stderr=subprocess.DEVNULL,
             )
             return True
         except (subprocess.CalledProcessError, FileNotFoundError):
             return False
-

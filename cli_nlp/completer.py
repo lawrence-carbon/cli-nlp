@@ -15,11 +15,39 @@ class QueryCompleter(Completer):
     def __init__(self):
         self.path_completer = PathCompleter(expanduser=True, only_directories=False)
         self.common_commands = [
-            "list", "show", "find", "search", "display", "count",
-            "create", "delete", "remove", "move", "copy", "rename",
-            "grep", "cat", "less", "head", "tail", "sort", "uniq",
-            "ls", "cd", "pwd", "mkdir", "rm", "cp", "mv", "touch",
-            "git", "docker", "kubectl", "npm", "pip", "poetry",
+            "list",
+            "show",
+            "find",
+            "search",
+            "display",
+            "count",
+            "create",
+            "delete",
+            "remove",
+            "move",
+            "copy",
+            "rename",
+            "grep",
+            "cat",
+            "less",
+            "head",
+            "tail",
+            "sort",
+            "uniq",
+            "ls",
+            "cd",
+            "pwd",
+            "mkdir",
+            "rm",
+            "cp",
+            "mv",
+            "touch",
+            "git",
+            "docker",
+            "kubectl",
+            "npm",
+            "pip",
+            "poetry",
         ]
         self._command_cache = None
 
@@ -52,7 +80,7 @@ class QueryCompleter(Completer):
 
         # Find the path in the text
         # Look for patterns: /path, ~/path, ./path
-        match = re.search(r'([/~]|\./)[^\s]*$', text_before)
+        match = re.search(r"([/~]|\./)[^\s]*$", text_before)
         if match:
             # Extract the path portion
             path_start = match.start()
@@ -65,9 +93,13 @@ class QueryCompleter(Completer):
             return path_doc, path_start
 
         # Also handle case where we're right after a path indicator
-        if text_before.endswith('/') or text_before.endswith('~/') or text_before.endswith('./'):
-            if text_before.endswith('./'):
-                path_text = './' + text_after
+        if (
+            text_before.endswith("/")
+            or text_before.endswith("~/")
+            or text_before.endswith("./")
+        ):
+            if text_before.endswith("./"):
+                path_text = "./" + text_after
                 offset = len(text_before) - 2
             else:
                 path_text = text_before[-1:] + text_after
@@ -86,33 +118,33 @@ class QueryCompleter(Completer):
         import re
 
         # Find path pattern
-        match = re.search(r'([/~]|\./)[^\s]*$', text_before)
+        match = re.search(r"([/~]|\./)[^\s]*$", text_before)
         if match:
             path_start = match.start()
             path_text = text_before[path_start:]
 
             # Determine the directory and file part
-            if '/' in path_text:
+            if "/" in path_text:
                 # Split into directory and filename
-                last_slash = path_text.rfind('/')
-                dir_part = path_text[:last_slash + 1]
-                file_part = path_text[last_slash + 1:]
+                last_slash = path_text.rfind("/")
+                dir_part = path_text[: last_slash + 1]
+                file_part = path_text[last_slash + 1 :]
             else:
                 dir_part = path_text
                 file_part = ""
 
             # Resolve the directory
             try:
-                if dir_part.startswith('~/'):
+                if dir_part.startswith("~/"):
                     base_dir = Path.home() / dir_part[2:]
-                elif dir_part.startswith('./'):
+                elif dir_part.startswith("./"):
                     base_dir = Path(dir_part[2:])
-                elif dir_part.startswith('/'):
+                elif dir_part.startswith("/"):
                     base_dir = Path(dir_part)
-                elif dir_part.startswith('~'):
+                elif dir_part.startswith("~"):
                     base_dir = Path.home() / dir_part[1:]
                 else:
-                    base_dir = Path('.') / dir_part
+                    base_dir = Path(".") / dir_part
 
                 # Expand user if needed
                 base_dir = base_dir.expanduser()
@@ -124,7 +156,7 @@ class QueryCompleter(Completer):
                             if item.startswith(file_part):
                                 item_path = base_dir / item
                                 if item_path.is_dir():
-                                    completion_text = item + '/'
+                                    completion_text = item + "/"
                                 else:
                                     completion_text = item
 
@@ -133,7 +165,9 @@ class QueryCompleter(Completer):
                                 yield Completion(
                                     completion_text,
                                     start_position=start_pos,
-                                    display_meta="directory" if item_path.is_dir() else "file"
+                                    display_meta=(
+                                        "directory" if item_path.is_dir() else "file"
+                                    ),
                                 )
                     except PermissionError:
                         pass
@@ -149,41 +183,50 @@ class QueryCompleter(Completer):
         # in the text before cursor and there's no space after it, we're in a path
 
         # Check for absolute paths: /something
-        if '/' in text_before:
+        if "/" in text_before:
             # Find the last / in the text
-            last_slash_idx = text_before.rfind('/')
+            last_slash_idx = text_before.rfind("/")
             if last_slash_idx >= 0:
                 # Check what's after the slash
-                after_slash = text_before[last_slash_idx + 1:]
+                after_slash = text_before[last_slash_idx + 1 :]
                 # If there's no space after the slash, we're likely in a path
-                if ' ' not in after_slash:
+                if " " not in after_slash:
                     # Check if it's a valid path start (/, ~/, or ./)
-                    before_slash = text_before[:last_slash_idx + 1]
+                    before_slash = text_before[: last_slash_idx + 1]
                     # Check if it starts with /, ~/, or ./ or has a space before /
-                    if (before_slash.endswith('/') or
-                        before_slash.endswith('~/') or
-                        before_slash.endswith('./') or
-                        (last_slash_idx > 0 and text_before[last_slash_idx - 1] == ' ')):
+                    if (
+                        before_slash.endswith("/")
+                        or before_slash.endswith("~/")
+                        or before_slash.endswith("./")
+                        or (
+                            last_slash_idx > 0
+                            and text_before[last_slash_idx - 1] == " "
+                        )
+                    ):
                         return True
 
         # Check for home directory paths: ~/something
-        if '~/' in text_before:
-            tilde_idx = text_before.rfind('~/')
+        if "~/" in text_before:
+            tilde_idx = text_before.rfind("~/")
             if tilde_idx >= 0:
-                after_tilde = text_before[tilde_idx + 2:]
-                if ' ' not in after_tilde:
+                after_tilde = text_before[tilde_idx + 2 :]
+                if " " not in after_tilde:
                     return True
 
         # Check for relative paths: ./something
-        if './' in text_before:
-            dot_idx = text_before.rfind('./')
+        if "./" in text_before:
+            dot_idx = text_before.rfind("./")
             if dot_idx >= 0:
-                after_dot = text_before[dot_idx + 2:]
-                if ' ' not in after_dot:
+                after_dot = text_before[dot_idx + 2 :]
+                if " " not in after_dot:
                     return True
 
         # Also check if we're typing right after a path indicator
-        if text_before.endswith('/') or text_before.endswith('~/') or text_before.endswith('./'):
+        if (
+            text_before.endswith("/")
+            or text_before.endswith("~/")
+            or text_before.endswith("./")
+        ):
             return True
 
         return False
@@ -214,10 +257,14 @@ class QueryCompleter(Completer):
                 ["bash", "-c", "compgen -c"],
                 capture_output=True,
                 text=True,
-                timeout=0.5
+                timeout=0.5,
             )
             if result.returncode == 0:
                 commands = sorted(set(result.stdout.strip().split("\n")))
-        except (subprocess.TimeoutExpired, FileNotFoundError, subprocess.SubprocessError):
+        except (
+            subprocess.TimeoutExpired,
+            FileNotFoundError,
+            subprocess.SubprocessError,
+        ):
             pass
         return commands

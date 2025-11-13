@@ -13,7 +13,13 @@ from cli_nlp.models import CommandResponse, MultiCommandResponse, SafetyLevel
 class TestCommandRunner:
     """Test suite for CommandRunner."""
 
-    def test_init(self, mock_config_manager, mock_history_manager, mock_cache_manager, mock_context_manager):
+    def test_init(
+        self,
+        mock_config_manager,
+        mock_history_manager,
+        mock_cache_manager,
+        mock_context_manager,
+    ):
         """Test CommandRunner initialization."""
         runner = CommandRunner(
             config_manager=mock_config_manager,
@@ -43,11 +49,15 @@ class TestCommandRunner:
         from cli_nlp.config_manager import ConfigManager
 
         config_file = temp_dir / "config.json"
-        config_file.write_text(json.dumps({
-            "providers": {},
-            "active_provider": None,
-            "active_model": "gpt-4o-mini"
-        }))
+        config_file.write_text(
+            json.dumps(
+                {
+                    "providers": {},
+                    "active_provider": None,
+                    "active_model": "gpt-4o-mini",
+                }
+            )
+        )
 
         manager = ConfigManager()
         manager.config_path = config_file
@@ -69,12 +79,14 @@ class TestCommandRunner:
         # Mock LiteLLM completion
         mock_response = MagicMock()
         mock_message = MagicMock()
-        mock_message.content = json.dumps({
-            "command": "ls -la",
-            "is_safe": True,
-            "safety_level": "safe",
-            "explanation": "List files in current directory",
-        })
+        mock_message.content = json.dumps(
+            {
+                "command": "ls -la",
+                "is_safe": True,
+                "safety_level": "safe",
+                "explanation": "List files in current directory",
+            }
+        )
         mock_choice = MagicMock()
         mock_choice.message = mock_message
         mock_response.choices = [mock_choice]
@@ -89,7 +101,7 @@ class TestCommandRunner:
         mock_litellm_module = MagicMock()
         mock_litellm_module.completion.return_value = mock_response
 
-        with patch.dict('sys.modules', {'litellm': mock_litellm_module}):
+        with patch.dict("sys.modules", {"litellm": mock_litellm_module}):
             # Test
             result = runner.generate_command("list files", use_cache=False)
 
@@ -110,12 +122,14 @@ class TestCommandRunner:
         # Mock LiteLLM completion - first call fails (Pydantic schema), second succeeds (JSON mode)
         mock_response_json = MagicMock()
         mock_message_json = MagicMock()
-        mock_message_json.content = json.dumps({
-            "command": "ls -la",
-            "is_safe": True,
-            "safety_level": "safe",
-            "explanation": "List files in current directory",
-        })
+        mock_message_json.content = json.dumps(
+            {
+                "command": "ls -la",
+                "is_safe": True,
+                "safety_level": "safe",
+                "explanation": "List files in current directory",
+            }
+        )
         mock_choice_json = MagicMock()
         mock_choice_json.message = mock_message_json
         mock_response_json.choices = [mock_choice_json]
@@ -130,10 +144,10 @@ class TestCommandRunner:
         mock_litellm_module = MagicMock()
         mock_litellm_module.completion.side_effect = [
             Exception("Schema not supported"),
-            mock_response_json
+            mock_response_json,
         ]
 
-        with patch.dict('sys.modules', {'litellm': mock_litellm_module}):
+        with patch.dict("sys.modules", {"litellm": mock_litellm_module}):
             # Test
             result = runner.generate_command("list files", use_cache=False)
 
@@ -153,7 +167,9 @@ class TestCommandRunner:
     ):
         """Test command generation uses cache when available."""
         # Setup cache
-        mock_cache_manager.set("list files", sample_command_response, model="gpt-4o-mini")
+        mock_cache_manager.set(
+            "list files", sample_command_response, model="gpt-4o-mini"
+        )
 
         runner = CommandRunner(
             config_manager=mock_config_manager,
@@ -182,12 +198,14 @@ class TestCommandRunner:
         """Test that generated commands are cached."""
         mock_response = MagicMock()
         mock_message = MagicMock()
-        mock_message.content = json.dumps({
-            "command": "ls -la",
-            "is_safe": True,
-            "safety_level": "safe",
-            "explanation": "List files",
-        })
+        mock_message.content = json.dumps(
+            {
+                "command": "ls -la",
+                "is_safe": True,
+                "safety_level": "safe",
+                "explanation": "List files",
+            }
+        )
         mock_choice = MagicMock()
         mock_choice.message = mock_message
         mock_response.choices = [mock_choice]
@@ -202,7 +220,7 @@ class TestCommandRunner:
         mock_litellm_module = MagicMock()
         mock_litellm_module.completion.return_value = mock_response
 
-        with patch.dict('sys.modules', {'litellm': mock_litellm_module}):
+        with patch.dict("sys.modules", {"litellm": mock_litellm_module}):
             # Generate command
             result = runner.generate_command("list files", use_cache=True)
 
@@ -220,12 +238,14 @@ class TestCommandRunner:
         """Test command generation with custom model."""
         mock_response = MagicMock()
         mock_message = MagicMock()
-        mock_message.content = json.dumps({
-            "command": "ls -la",
-            "is_safe": True,
-            "safety_level": "safe",
-            "explanation": "List files",
-        })
+        mock_message.content = json.dumps(
+            {
+                "command": "ls -la",
+                "is_safe": True,
+                "safety_level": "safe",
+                "explanation": "List files",
+            }
+        )
         mock_choice = MagicMock()
         mock_choice.message = mock_message
         mock_response.choices = [mock_choice]
@@ -240,7 +260,7 @@ class TestCommandRunner:
         mock_litellm_module = MagicMock()
         mock_litellm_module.completion.return_value = mock_response
 
-        with patch.dict('sys.modules', {'litellm': mock_litellm_module}):
+        with patch.dict("sys.modules", {"litellm": mock_litellm_module}):
             # Test with custom model
             runner.generate_command("list files", model="gpt-4o", use_cache=False)
 
@@ -257,12 +277,14 @@ class TestCommandRunner:
         """Test command refinement."""
         mock_response = MagicMock()
         mock_message = MagicMock()
-        mock_message.content = json.dumps({
-            "command": "ls -la",
-            "is_safe": True,
-            "safety_level": "safe",
-            "explanation": "List files including hidden",
-        })
+        mock_message.content = json.dumps(
+            {
+                "command": "ls -la",
+                "is_safe": True,
+                "safety_level": "safe",
+                "explanation": "List files including hidden",
+            }
+        )
         mock_choice = MagicMock()
         mock_choice.message = mock_message
         mock_response.choices = [mock_choice]
@@ -277,7 +299,7 @@ class TestCommandRunner:
         mock_litellm_module = MagicMock()
         mock_litellm_module.completion.return_value = mock_response
 
-        with patch.dict('sys.modules', {'litellm': mock_litellm_module}):
+        with patch.dict("sys.modules", {"litellm": mock_litellm_module}):
             # Test refinement
             result = runner.refine_command(
                 original_query="list files",
@@ -306,7 +328,7 @@ class TestCommandRunner:
         mock_litellm_module = MagicMock()
         mock_litellm_module.completion.return_value = mock_openai_alternatives_response
 
-        with patch.dict('sys.modules', {'litellm': mock_litellm_module}):
+        with patch.dict("sys.modules", {"litellm": mock_litellm_module}):
             # Test alternatives
             alternatives = runner.generate_alternatives("list files", count=3)
 
@@ -332,7 +354,7 @@ class TestCommandRunner:
         mock_litellm_module = MagicMock()
         mock_litellm_module.completion.return_value = mock_openai_multi_command_response
 
-        with patch.dict('sys.modules', {'litellm': mock_litellm_module}):
+        with patch.dict("sys.modules", {"litellm": mock_litellm_module}):
             # Test multi-command
             result = runner.generate_multi_command("find python files and count lines")
 
@@ -342,7 +364,7 @@ class TestCommandRunner:
             assert result.overall_safe is True
             mock_litellm_module.completion.assert_called_once()
 
-    @patch('cli_nlp.command_runner.console')
+    @patch("cli_nlp.command_runner.console")
     def test_run_display_only(
         self,
         mock_console,
@@ -354,12 +376,14 @@ class TestCommandRunner:
         """Test run() method displays command without executing."""
         mock_response = MagicMock()
         mock_message = MagicMock()
-        mock_message.content = json.dumps({
-            "command": "ls -la",
-            "is_safe": True,
-            "safety_level": "safe",
-            "explanation": "List files",
-        })
+        mock_message.content = json.dumps(
+            {
+                "command": "ls -la",
+                "is_safe": True,
+                "safety_level": "safe",
+                "explanation": "List files",
+            }
+        )
         mock_choice = MagicMock()
         mock_choice.message = mock_message
         mock_response.choices = [mock_choice]
@@ -375,7 +399,7 @@ class TestCommandRunner:
         mock_litellm_module = MagicMock()
         mock_litellm_module.completion.return_value = mock_response
 
-        with patch.dict('sys.modules', {'litellm': mock_litellm_module}):
+        with patch.dict("sys.modules", {"litellm": mock_litellm_module}):
             # Test run without execution
             runner.run("list files", execute=False)
 
@@ -385,7 +409,7 @@ class TestCommandRunner:
             assert entry.query == "list files"
             assert entry.executed is False
 
-    @patch('cli_nlp.command_runner.subprocess')
+    @patch("cli_nlp.command_runner.subprocess")
     def test_run_execute_safe_command(
         self,
         mock_subprocess,
@@ -397,12 +421,14 @@ class TestCommandRunner:
         """Test run() method executes safe commands."""
         mock_response = MagicMock()
         mock_message = MagicMock()
-        mock_message.content = json.dumps({
-            "command": "ls -la",
-            "is_safe": True,
-            "safety_level": "safe",
-            "explanation": "List files",
-        })
+        mock_message.content = json.dumps(
+            {
+                "command": "ls -la",
+                "is_safe": True,
+                "safety_level": "safe",
+                "explanation": "List files",
+            }
+        )
         mock_choice = MagicMock()
         mock_choice.message = mock_message
         mock_response.choices = [mock_choice]
@@ -423,7 +449,7 @@ class TestCommandRunner:
         mock_litellm_module = MagicMock()
         mock_litellm_module.completion.return_value = mock_response
 
-        with patch.dict('sys.modules', {'litellm': mock_litellm_module}):
+        with patch.dict("sys.modules", {"litellm": mock_litellm_module}):
             # Test run with execution
             with pytest.raises(SystemExit) as exc_info:
                 runner.run("list files", execute=True)
@@ -437,7 +463,7 @@ class TestCommandRunner:
             assert entries[0].executed is True
             assert entries[0].return_code == 0
 
-    @patch('cli_nlp.command_runner.subprocess')
+    @patch("cli_nlp.command_runner.subprocess")
     def test_run_execute_modifying_command_without_force(
         self,
         mock_subprocess,
@@ -449,12 +475,14 @@ class TestCommandRunner:
         """Test run() method blocks modifying commands without --force."""
         mock_response = MagicMock()
         mock_message = MagicMock()
-        mock_message.content = json.dumps({
-            "command": "rm -rf /tmp/test",
-            "is_safe": False,
-            "safety_level": "modifying",
-            "explanation": "Remove test directory",
-        })
+        mock_message.content = json.dumps(
+            {
+                "command": "rm -rf /tmp/test",
+                "is_safe": False,
+                "safety_level": "modifying",
+                "explanation": "Remove test directory",
+            }
+        )
         mock_choice = MagicMock()
         mock_choice.message = mock_message
         mock_response.choices = [mock_choice]
@@ -470,7 +498,7 @@ class TestCommandRunner:
         mock_litellm_module = MagicMock()
         mock_litellm_module.completion.return_value = mock_response
 
-        with patch.dict('sys.modules', {'litellm': mock_litellm_module}):
+        with patch.dict("sys.modules", {"litellm": mock_litellm_module}):
             # Test run with modifying command without force
             with pytest.raises(SystemExit) as exc_info:
                 runner.run("delete test directory", execute=True, force=False)
@@ -498,7 +526,7 @@ class TestCommandRunner:
         mock_litellm_module = MagicMock()
         mock_litellm_module.completion.return_value = mock_openai_alternatives_response
 
-        with patch.dict('sys.modules', {'litellm': mock_litellm_module}):
+        with patch.dict("sys.modules", {"litellm": mock_litellm_module}):
             # Test alternatives
             runner.run("list files", alternatives=True)
 
@@ -517,12 +545,14 @@ class TestCommandRunner:
         """Test batch processing."""
         mock_response = MagicMock()
         mock_message = MagicMock()
-        mock_message.content = json.dumps({
-            "command": "ls -la",
-            "is_safe": True,
-            "safety_level": "safe",
-            "explanation": "List files",
-        })
+        mock_message.content = json.dumps(
+            {
+                "command": "ls -la",
+                "is_safe": True,
+                "safety_level": "safe",
+                "explanation": "List files",
+            }
+        )
         mock_choice = MagicMock()
         mock_choice.message = mock_message
         mock_response.choices = [mock_choice]
@@ -538,7 +568,7 @@ class TestCommandRunner:
         mock_litellm_module = MagicMock()
         mock_litellm_module.completion.return_value = mock_response
 
-        with patch.dict('sys.modules', {'litellm': mock_litellm_module}):
+        with patch.dict("sys.modules", {"litellm": mock_litellm_module}):
             # Create test file
             queries_file = temp_dir / "queries.txt"
             queries_file.write_text("list files\nshow disk usage\nfind python files")
@@ -550,10 +580,12 @@ class TestCommandRunner:
             # Note: run_batch calls run() which uses cache by default
             # Since we're using the same mock response, cache might be hit
             # But run_batch processes each query, so we should see multiple calls
-            assert mock_litellm_module.completion.call_count >= 1  # At least 1 call (may be cached)
+            assert (
+                mock_litellm_module.completion.call_count >= 1
+            )  # At least 1 call (may be cached)
 
-    @patch('cli_nlp.command_runner.copy_to_clipboard')
-    @patch('cli_nlp.command_runner.console')
+    @patch("cli_nlp.command_runner.copy_to_clipboard")
+    @patch("cli_nlp.command_runner.console")
     def test_run_copy_to_clipboard(
         self,
         mock_console,
@@ -566,12 +598,14 @@ class TestCommandRunner:
         """Test run() method copies command to clipboard."""
         mock_response = MagicMock()
         mock_message = MagicMock()
-        mock_message.content = json.dumps({
-            "command": "ls -la",
-            "is_safe": True,
-            "safety_level": "safe",
-            "explanation": "List files",
-        })
+        mock_message.content = json.dumps(
+            {
+                "command": "ls -la",
+                "is_safe": True,
+                "safety_level": "safe",
+                "explanation": "List files",
+            }
+        )
         mock_choice = MagicMock()
         mock_choice.message = mock_message
         mock_response.choices = [mock_choice]
@@ -588,7 +622,7 @@ class TestCommandRunner:
         mock_litellm_module = MagicMock()
         mock_litellm_module.completion.return_value = mock_response
 
-        with patch.dict('sys.modules', {'litellm': mock_litellm_module}):
+        with patch.dict("sys.modules", {"litellm": mock_litellm_module}):
             # Test run with copy flag
             runner.run("list files", copy=True)
 
@@ -600,8 +634,8 @@ class TestCommandRunner:
             assert len(call_args[0]) > 0
             assert call_args[0] == "ls -la"
 
-    @patch('cli_nlp.command_runner.copy_to_clipboard')
-    @patch('cli_nlp.command_runner.console')
+    @patch("cli_nlp.command_runner.copy_to_clipboard")
+    @patch("cli_nlp.command_runner.console")
     def test_run_copy_to_clipboard_fails(
         self,
         mock_console,
@@ -614,12 +648,14 @@ class TestCommandRunner:
         """Test run() method handles clipboard copy failure."""
         mock_response = MagicMock()
         mock_message = MagicMock()
-        mock_message.content = json.dumps({
-            "command": "ls -la",
-            "is_safe": True,
-            "safety_level": "safe",
-            "explanation": "List files",
-        })
+        mock_message.content = json.dumps(
+            {
+                "command": "ls -la",
+                "is_safe": True,
+                "safety_level": "safe",
+                "explanation": "List files",
+            }
+        )
         mock_choice = MagicMock()
         mock_choice.message = mock_message
         mock_response.choices = [mock_choice]
@@ -636,16 +672,18 @@ class TestCommandRunner:
         mock_litellm_module = MagicMock()
         mock_litellm_module.completion.return_value = mock_response
 
-        with patch.dict('sys.modules', {'litellm': mock_litellm_module}):
+        with patch.dict("sys.modules", {"litellm": mock_litellm_module}):
             # Test run with copy flag
             runner.run("list files", copy=True)
 
             mock_copy.assert_called_once()
             # Should print warning
-            assert any("clipboard" in str(call) for call in mock_console.print.call_args_list)
+            assert any(
+                "clipboard" in str(call) for call in mock_console.print.call_args_list
+            )
 
-    @patch('cli_nlp.command_runner.click.prompt')
-    @patch('cli_nlp.command_runner.console')
+    @patch("cli_nlp.command_runner.click.prompt")
+    @patch("cli_nlp.command_runner.console")
     def test_run_refine_mode(
         self,
         mock_console,
@@ -658,12 +696,14 @@ class TestCommandRunner:
         """Test run() method with refine mode."""
         mock_response = MagicMock()
         mock_message = MagicMock()
-        mock_message.content = json.dumps({
-            "command": "ls -la",
-            "is_safe": True,
-            "safety_level": "safe",
-            "explanation": "List files",
-        })
+        mock_message.content = json.dumps(
+            {
+                "command": "ls -la",
+                "is_safe": True,
+                "safety_level": "safe",
+                "explanation": "List files",
+            }
+        )
         mock_choice = MagicMock()
         mock_choice.message = mock_message
         mock_response.choices = [mock_choice]
@@ -680,15 +720,15 @@ class TestCommandRunner:
         mock_litellm_module = MagicMock()
         mock_litellm_module.completion.return_value = mock_response
 
-        with patch.dict('sys.modules', {'litellm': mock_litellm_module}):
+        with patch.dict("sys.modules", {"litellm": mock_litellm_module}):
             # Test refine mode
             runner.run("list files", refine=True)
 
             # Should prompt for refinement
             mock_prompt.assert_called_once()
 
-    @patch('cli_nlp.command_runner.click.prompt')
-    @patch('cli_nlp.command_runner.console')
+    @patch("cli_nlp.command_runner.click.prompt")
+    @patch("cli_nlp.command_runner.console")
     def test_run_refine_mode_with_refinement(
         self,
         mock_console,
@@ -701,12 +741,14 @@ class TestCommandRunner:
         """Test run() method with refine mode and actual refinement."""
         mock_response = MagicMock()
         mock_message = MagicMock()
-        mock_message.content = json.dumps({
-            "command": "ls -la",
-            "is_safe": True,
-            "safety_level": "safe",
-            "explanation": "List files",
-        })
+        mock_message.content = json.dumps(
+            {
+                "command": "ls -la",
+                "is_safe": True,
+                "safety_level": "safe",
+                "explanation": "List files",
+            }
+        )
         mock_choice = MagicMock()
         mock_choice.message = mock_message
         mock_response.choices = [mock_choice]
@@ -723,17 +765,19 @@ class TestCommandRunner:
         mock_litellm_module = MagicMock()
         mock_litellm_module.completion.return_value = mock_response
 
-        with patch.dict('sys.modules', {'litellm': mock_litellm_module}):
+        with patch.dict("sys.modules", {"litellm": mock_litellm_module}):
             # Test refine mode with refinement
             runner.run("list files", refine=True)
 
             # Should call refine_command which calls generate_command again
             # The refinement triggers another API call
-            assert mock_litellm_module.completion.call_count >= 1  # At least initial call
+            assert (
+                mock_litellm_module.completion.call_count >= 1
+            )  # At least initial call
             # Note: refine_command calls generate_command which uses cache=False
             # So it should make another API call, but the exact count depends on implementation
 
-    @patch('cli_nlp.command_runner.console')
+    @patch("cli_nlp.command_runner.console")
     def test_run_edit_mode(
         self,
         mock_console,
@@ -745,12 +789,14 @@ class TestCommandRunner:
         """Test run() method with edit mode."""
         mock_response = MagicMock()
         mock_message = MagicMock()
-        mock_message.content = json.dumps({
-            "command": "ls -la",
-            "is_safe": True,
-            "safety_level": "safe",
-            "explanation": "List files",
-        })
+        mock_message.content = json.dumps(
+            {
+                "command": "ls -la",
+                "is_safe": True,
+                "safety_level": "safe",
+                "explanation": "List files",
+            }
+        )
         mock_choice = MagicMock()
         mock_choice.message = mock_message
         mock_response.choices = [mock_choice]
@@ -765,6 +811,7 @@ class TestCommandRunner:
         # Mock the tempfile and os operations that happen inside edit mode
         # Store real open before patching
         import builtins
+
         real_open = builtins.open
         import tempfile as real_tempfile
 
@@ -782,7 +829,7 @@ class TestCommandRunner:
         mock_file_read.__exit__ = MagicMock(return_value=None)
 
         def open_side_effect(path, *args, **kwargs):
-            if isinstance(path, str) and path.endswith('.sh') and '/tmp' in path:
+            if isinstance(path, str) and path.endswith(".sh") and "/tmp" in path:
                 return mock_file_read
             # For other files, use real open
             return real_open(path, *args, **kwargs)
@@ -791,12 +838,16 @@ class TestCommandRunner:
         mock_litellm_module = MagicMock()
         mock_litellm_module.completion.return_value = mock_response
 
-        with patch.dict('sys.modules', {'litellm': mock_litellm_module}), \
-             patch.object(real_tempfile, 'NamedTemporaryFile', return_value=mock_file) as mock_tempfile_class, \
-             patch('os.getenv', return_value='nano'), \
-             patch('os.system') as mock_system, \
-             patch('os.unlink'), \
-             patch('builtins.open', side_effect=open_side_effect):
+        with (
+            patch.dict("sys.modules", {"litellm": mock_litellm_module}),
+            patch.object(
+                real_tempfile, "NamedTemporaryFile", return_value=mock_file
+            ) as mock_tempfile_class,
+            patch("os.getenv", return_value="nano"),
+            patch("os.system") as mock_system,
+            patch("os.unlink"),
+            patch("builtins.open", side_effect=open_side_effect),
+        ):
 
             # Test edit mode
             runner.run("list files", edit=True)
@@ -806,7 +857,7 @@ class TestCommandRunner:
             # We verify the code path was taken by checking tempfile was used
             assert mock_tempfile_class.called or mock_system.called
 
-    @patch('cli_nlp.command_runner.subprocess')
+    @patch("cli_nlp.command_runner.subprocess")
     def test_run_execute_unsafe_without_force(
         self,
         mock_subprocess,
@@ -818,12 +869,14 @@ class TestCommandRunner:
         """Test run() method blocks unsafe command execution without force."""
         mock_response = MagicMock()
         mock_message = MagicMock()
-        mock_message.content = json.dumps({
-            "command": "rm -rf /tmp/test",
-            "is_safe": False,
-            "safety_level": "modifying",
-            "explanation": "Remove test directory",
-        })
+        mock_message.content = json.dumps(
+            {
+                "command": "rm -rf /tmp/test",
+                "is_safe": False,
+                "safety_level": "modifying",
+                "explanation": "Remove test directory",
+            }
+        )
         mock_choice = MagicMock()
         mock_choice.message = mock_message
         mock_response.choices = [mock_choice]
@@ -839,7 +892,7 @@ class TestCommandRunner:
         mock_litellm_module = MagicMock()
         mock_litellm_module.completion.return_value = mock_response
 
-        with patch.dict('sys.modules', {'litellm': mock_litellm_module}):
+        with patch.dict("sys.modules", {"litellm": mock_litellm_module}):
             # Test run with unsafe command without force
             with pytest.raises(SystemExit) as exc_info:
                 runner.run("delete test directory", execute=True, force=False)
@@ -867,7 +920,7 @@ class TestCommandRunner:
         mock_litellm_module = MagicMock()
         mock_litellm_module.completion.return_value = mock_openai_multi_command_response
 
-        with patch.dict('sys.modules', {'litellm': mock_litellm_module}):
+        with patch.dict("sys.modules", {"litellm": mock_litellm_module}):
             # Test multi-command query
             runner.run("find python files and count lines")
 
@@ -910,12 +963,14 @@ class TestCommandRunner:
         """Test run_batch() skips comments and empty lines."""
         mock_response = MagicMock()
         mock_message = MagicMock()
-        mock_message.content = json.dumps({
-            "command": "ls -la",
-            "is_safe": True,
-            "safety_level": "safe",
-            "explanation": "List files",
-        })
+        mock_message.content = json.dumps(
+            {
+                "command": "ls -la",
+                "is_safe": True,
+                "safety_level": "safe",
+                "explanation": "List files",
+            }
+        )
         mock_choice = MagicMock()
         mock_choice.message = mock_message
         mock_response.choices = [mock_choice]
@@ -931,10 +986,12 @@ class TestCommandRunner:
         mock_litellm_module = MagicMock()
         mock_litellm_module.completion.return_value = mock_response
 
-        with patch.dict('sys.modules', {'litellm': mock_litellm_module}):
+        with patch.dict("sys.modules", {"litellm": mock_litellm_module}):
             # Create file with comments
             queries_file = temp_dir / "queries.txt"
-            queries_file.write_text("# This is a comment\nlist files\n# Another comment\n\nshow disk usage")
+            queries_file.write_text(
+                "# This is a comment\nlist files\n# Another comment\n\nshow disk usage"
+            )
 
             runner.run_batch(str(queries_file))
 
@@ -977,13 +1034,13 @@ class TestCommandRunner:
             context_manager=mock_context_manager,
         )
 
-        with patch('builtins.open', side_effect=PermissionError("Permission denied")):
+        with patch("builtins.open", side_effect=PermissionError("Permission denied")):
             with pytest.raises(SystemExit) as exc_info:
                 runner.run_batch("/some/file.txt")
 
             assert exc_info.value.code == 1
 
-    @patch('cli_nlp.command_runner.console')
+    @patch("cli_nlp.command_runner.console")
     def test_run_batch_query_error(
         self,
         mock_console,
@@ -996,12 +1053,14 @@ class TestCommandRunner:
         """Test run_batch() handles individual query errors."""
         mock_response = MagicMock()
         mock_message = MagicMock()
-        mock_message.content = json.dumps({
-            "command": "ls -la",
-            "is_safe": True,
-            "safety_level": "safe",
-            "explanation": "List files",
-        })
+        mock_message.content = json.dumps(
+            {
+                "command": "ls -la",
+                "is_safe": True,
+                "safety_level": "safe",
+                "explanation": "List files",
+            }
+        )
         mock_choice = MagicMock()
         mock_choice.message = mock_message
         mock_response.choices = [mock_choice]
@@ -1018,15 +1077,17 @@ class TestCommandRunner:
         # First call succeeds, second call fails
         mock_litellm_module.completion.side_effect = [
             mock_response,
-            Exception("Query error")
+            Exception("Query error"),
         ]
 
         def mock_exit(code=0):
             # Convert sys.exit to raise SystemExit exception instead
             raise SystemExit(code)
 
-        with patch.dict('sys.modules', {'litellm': mock_litellm_module}), \
-             patch('sys.exit', side_effect=mock_exit):
+        with (
+            patch.dict("sys.modules", {"litellm": mock_litellm_module}),
+            patch("sys.exit", side_effect=mock_exit),
+        ):
             queries_file = temp_dir / "queries.txt"
             queries_file.write_text("list files\nbad query")
 
@@ -1036,9 +1097,11 @@ class TestCommandRunner:
 
             # Should have processed first query (second fails)
             # The first call succeeds, second raises exception
-            assert mock_litellm_module.completion.call_count >= 1  # At least the first call
+            assert (
+                mock_litellm_module.completion.call_count >= 1
+            )  # At least the first call
 
-    @patch('cli_nlp.command_runner.subprocess')
+    @patch("cli_nlp.command_runner.subprocess")
     def test_run_execute_keyboard_interrupt(
         self,
         mock_subprocess,
@@ -1050,12 +1113,14 @@ class TestCommandRunner:
         """Test run() method handles KeyboardInterrupt during execution."""
         mock_response = MagicMock()
         mock_message = MagicMock()
-        mock_message.content = json.dumps({
-            "command": "ls -la",
-            "is_safe": True,
-            "safety_level": "safe",
-            "explanation": "List files",
-        })
+        mock_message.content = json.dumps(
+            {
+                "command": "ls -la",
+                "is_safe": True,
+                "safety_level": "safe",
+                "explanation": "List files",
+            }
+        )
         mock_choice = MagicMock()
         mock_choice.message = mock_message
         mock_response.choices = [mock_choice]
@@ -1073,7 +1138,7 @@ class TestCommandRunner:
         mock_litellm_module = MagicMock()
         mock_litellm_module.completion.return_value = mock_response
 
-        with patch.dict('sys.modules', {'litellm': mock_litellm_module}):
+        with patch.dict("sys.modules", {"litellm": mock_litellm_module}):
             with pytest.raises(SystemExit) as exc_info:
                 runner.run("list files", execute=True, force=True)
 
@@ -1083,7 +1148,7 @@ class TestCommandRunner:
             assert len(entries) == 1
             assert entries[0].return_code == 130
 
-    @patch('cli_nlp.command_runner.subprocess')
+    @patch("cli_nlp.command_runner.subprocess")
     def test_run_execute_exception(
         self,
         mock_subprocess,
@@ -1095,12 +1160,14 @@ class TestCommandRunner:
         """Test run() method handles exceptions during execution."""
         mock_response = MagicMock()
         mock_message = MagicMock()
-        mock_message.content = json.dumps({
-            "command": "ls -la",
-            "is_safe": True,
-            "safety_level": "safe",
-            "explanation": "List files",
-        })
+        mock_message.content = json.dumps(
+            {
+                "command": "ls -la",
+                "is_safe": True,
+                "safety_level": "safe",
+                "explanation": "List files",
+            }
+        )
         mock_choice = MagicMock()
         mock_choice.message = mock_message
         mock_response.choices = [mock_choice]
@@ -1118,7 +1185,7 @@ class TestCommandRunner:
         mock_litellm_module = MagicMock()
         mock_litellm_module.completion.return_value = mock_response
 
-        with patch.dict('sys.modules', {'litellm': mock_litellm_module}):
+        with patch.dict("sys.modules", {"litellm": mock_litellm_module}):
             with pytest.raises(SystemExit) as exc_info:
                 runner.run("list files", execute=True, force=True)
 
@@ -1127,4 +1194,3 @@ class TestCommandRunner:
             entries = mock_history_manager.get_all()
             assert len(entries) == 1
             assert entries[0].return_code == 1
-

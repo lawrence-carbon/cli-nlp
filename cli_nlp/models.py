@@ -7,8 +7,11 @@ from pydantic import BaseModel, Field
 
 class SafetyLevel(str, Enum):
     """Safety level of a command."""
+
     SAFE = "safe"  # Read-only operations
-    MODIFYING = "modifying"  # Will alter system state (write files, change config, etc.)
+    MODIFYING = (
+        "modifying"  # Will alter system state (write files, change config, etc.)
+    )
 
 
 class CommandResponse(BaseModel):
@@ -28,7 +31,7 @@ class CommandResponse(BaseModel):
 
     explanation: str | None = Field(
         default=None,
-        description="Brief explanation of what the command does (optional, for user understanding)."
+        description="Brief explanation of what the command does (optional, for user understanding).",
     )
 
 
@@ -41,12 +44,12 @@ class MultiCommandResponse(BaseModel):
 
     execution_type: str = Field(
         default="sequence",
-        description="How to execute commands: 'sequence' (one after another), 'pipeline' (piped together), or 'parallel' (simultaneously)"
+        description="How to execute commands: 'sequence' (one after another), 'pipeline' (piped together), or 'parallel' (simultaneously)",
     )
 
     combined_command: str | None = Field(
         default=None,
-        description="The combined command string (for pipelines or chained commands)"
+        description="The combined command string (for pipelines or chained commands)",
     )
 
     overall_safe: bool = Field(
@@ -54,7 +57,5 @@ class MultiCommandResponse(BaseModel):
     )
 
     explanation: str | None = Field(
-        default=None,
-        description="Brief explanation of the command sequence"
+        default=None, description="Brief explanation of the command sequence"
     )
-
