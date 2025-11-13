@@ -1,0 +1,26 @@
+---
+description: Rules for updating and maintaining cursor rules themselves
+globs: '.cursor/rules/**/*.mdc'
+alwaysApply: true
+---
+
+# Self-Healing Rules
+
+## Updating These Rules
+- **Cursor rules files can and must be updated when relevant**:
+  - When missing information is discovered
+  - When repetitive tasks emerge that should be codified
+  - When project patterns evolve
+  - When new best practices are identified
+
+## How to Update
+- Add new rules when patterns emerge
+- Update existing rules when they become outdated
+- Remove rules that are no longer relevant
+- Keep rules organized and well-commented
+
+## When Updating Rules
+- Explain why the rule is being added/changed
+- Ensure the rule is clear and actionable
+- Consider if the rule applies broadly or is project-specific
+- Update the appropriate `.mdc` file in `.cursor/rules/` directory

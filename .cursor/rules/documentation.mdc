@@ -1,0 +1,28 @@
+---
+description: Documentation maintenance and update rules
+globs: '**/*.{py,md}'
+alwaysApply: true
+---
+
+# Documentation Rules
+
+## Before Making Changes
+- **Always read project documentation first** to understand high-level context:
+  - `README.md` - Project overview, features, usage
+  - `CONTRIBUTING.md` - Contribution guidelines, coding standards
+  - `CHANGELOG.md` - Recent changes and version history
+  - `SECURITY.md` - Security policies and reporting
+
+## Maintaining Documentation
+- **Update documentation when code changes require it**:
+  - Update `README.md` if features, installation, or usage changes
+  - Update `CONTRIBUTING.md` if development workflow changes
+  - Update `CHANGELOG.md` for user-facing changes (add to Unreleased section)
+  - Update docstrings and inline comments to reflect code changes
+  - Keep examples in documentation current and working
+
+## Documentation Best Practices
+- Write docstrings for all public functions and classes
+- Include type information in docstrings when helpful
+- Provide usage examples in docstrings for complex functions
+- Keep README examples up to date and tested

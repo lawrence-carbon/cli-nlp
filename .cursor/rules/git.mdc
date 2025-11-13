@@ -1,0 +1,41 @@
+---
+description: Git commit message and branch strategy rules
+globs: '**/*'
+alwaysApply: true
+---
+
+# Git Rules
+
+## Commit Messages
+- **Use synthetic but meaningful commit messages**:
+  - Focus on **behavior changes**, not implementation details
+  - Explain **what** changed and **why**, not **how**
+  - Keep messages concise but descriptive
+
+- **Follow Conventional Commits format**:
+  - `feat:` New feature
+  - `fix:` Bug fix
+  - `docs:` Documentation changes
+  - `style:` Code style changes (formatting, etc.)
+  - `refactor:` Code refactoring
+  - `test:` Adding or updating tests
+  - `chore:` Maintenance tasks
+  - `perf:` Performance improvements
+  - `ci:` CI/CD changes
+
+- **Examples of good commit messages**:
+  - `feat: add support for custom command templates`
+  - `fix: resolve config file permission issue`
+  - `docs: update installation instructions`
+  - `refactor: extract command validation logic`
+
+- **Examples of bad commit messages**:
+  - `update code` (too vague)
+  - `fix bug` (doesn't explain what)
+  - `changed function to use dict instead of list` (implementation detail, not behavior)
+
+## Branch Strategy
+- **For significant changes or breaking changes**:
+  - Suggest creating a dedicated branch first
+  - Use descriptive branch names: `feat/feature-name`, `fix/bug-description`
+  - Create PRs for review before merging to master

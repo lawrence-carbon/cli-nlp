@@ -1,0 +1,42 @@
+---
+description: Architecture patterns and project structure guidelines
+globs: '**/*.py'
+alwaysApply: true
+---
+
+# Architecture Patterns
+
+## Project Structure
+- Follow existing manager pattern for stateful components:
+  - `*_manager.py` files handle specific concerns (config, cache, history, etc.)
+  - Managers use XDG-compliant directories for data storage
+  - Keep business logic separate from CLI interface
+
+## Data Handling
+- Use Pydantic models (`models.py`) for structured data validation
+- Store configuration in XDG-compliant directories:
+  - Config: `~/.config/cli-nlp/` or `$XDG_CONFIG_HOME/cli-nlp/`
+  - Data: `~/.local/share/cli-nlp/` or `$XDG_DATA_HOME/cli-nlp/`
+  - Cache: `~/.cache/cli-nlp/` or `$XDG_CACHE_HOME/cli-nlp/`
+
+## Error Handling
+- Provide clear, user-friendly error messages
+- Log errors appropriately for debugging (use appropriate log levels)
+- Handle edge cases gracefully
+- Never expose internal implementation details in user-facing errors
+
+## Performance
+- Use caching (CacheManager) to reduce API calls
+- Consider performance implications when adding new features
+- Avoid unnecessary API calls or expensive operations
+- Profile code if performance becomes an issue
+- Use appropriate data structures for the use case
+- Consider caching expensive operations
+- Be mindful of API rate limits when making external calls
+
+## Security
+- **Never commit API keys or sensitive data**
+- Use secure file permissions (600) for config files
+- Validate user input before processing
+- Be cautious with command execution (safety checks are critical)
+- Follow security best practices outlined in `SECURITY.md`

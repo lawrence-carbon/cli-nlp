@@ -1,0 +1,51 @@
+---
+description: Code style, conventions, and quality rules
+globs: '**/*.py'
+alwaysApply: true
+---
+
+# Coding Rules
+
+## Code Style and Conventions
+- **Follow existing patterns and conventions**:
+  - Use Black for formatting (line length: 88, target: Python 3.12)
+  - Use Ruff for linting (configured in `pyproject.toml`)
+  - Add type hints where appropriate
+  - Use Google-style docstrings for public functions/classes
+  - Follow existing manager pattern (ConfigManager, CacheManager, HistoryManager, etc.)
+  - Keep CLI logic in `cli.py`, business logic in separate modules
+  - Use Pydantic models for data validation
+
+## Code Quality Checks
+- **Before committing**:
+  - Run `poetry run black .` to format code
+  - Run `poetry run ruff check .` to catch linting issues
+  - Run `poetry run ruff check --fix .` to auto-fix issues when possible
+
+## Code Organization
+- Keep functions focused and single-purpose
+- Avoid deep nesting (prefer early returns)
+- Use meaningful variable and function names
+- Group related functionality together
+
+## Refactoring
+- **When code becomes problematic**:
+  - If code becomes too wide, complex, or hard to maintain, suggest refactoring
+  - **Always ask the user before implementing refactoring**
+  - Explain the benefits and potential risks of the refactoring
+  - Ensure refactoring maintains or improves test coverage
+
+## Adding New Components
+- **When adding dependencies, tools, or APIs**:
+  - **Always ask the user first** before adding:
+    - New Python dependencies
+    - External tools or services
+    - External APIs
+    - Build tools or CI/CD changes
+  - If approved, update all related artifacts:
+    - `pyproject.toml` (dependencies)
+    - `README.md` (documentation)
+    - `CONTRIBUTING.md` (if workflow changes)
+    - `.github/workflows/` (CI/CD updates)
+    - Tests (add tests for new functionality)
+    - `CHANGELOG.md` (document the change)

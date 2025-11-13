@@ -1,0 +1,26 @@
+---
+description: Testing requirements and best practices
+globs: '**/*.py'
+alwaysApply: true
+---
+
+# Testing Rules
+
+## Testing Requirements
+- **Always run tests after code changes**:
+  - Run full test suite: `poetry run pytest`
+  - Run specific tests: `poetry run pytest tests/test_module.py`
+  - Run with coverage: `poetry run pytest --cov=cli_nlp --cov-report=html`
+  - Ensure no regressions before committing
+
+## Code Coverage
+- All new code must be covered by existing or new tests
+- Maintain test coverage at or above current baseline (80%)
+- Mock external API calls in tests (no real API calls during testing)
+- Use pytest-mock for mocking LLM/API interactions
+
+## Testing Best Practices
+- Write tests that are independent and can run in any order
+- Use descriptive test names that explain what is being tested
+- Test both happy paths and edge cases
+- Mock external dependencies consistently

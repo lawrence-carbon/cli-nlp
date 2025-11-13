@@ -1,0 +1,44 @@
+---
+description: Project context and tech stack information
+globs: '**/*'
+alwaysApply: true
+---
+
+# Project Context
+
+This is a CLI tool (`query-to-command`) that converts natural language to shell commands using LLM providers.
+
+## Tech Stack
+- **Language**: Python 3.12+ only
+- **Package Manager**: Poetry
+- **CLI Framework**: Click
+- **Data Models**: Pydantic
+- **Formatting**: Rich
+- **LLM Integration**: LiteLLM (supports 100+ providers)
+- **Testing**: pytest with pytest-mock and pytest-cov
+- **Code Quality**: Black (formatting) and Ruff (linting)
+- **Current Test Coverage**: 80% (maintain or improve)
+
+## Quick Reference Commands
+
+```bash
+# Format code
+poetry run black .
+
+# Lint code
+poetry run ruff check .
+poetry run ruff check --fix .
+
+# Run tests
+poetry run pytest
+poetry run pytest --cov=cli_nlp --cov-report=html
+
+# Run specific test file
+poetry run pytest tests/test_module.py
+
+# Install dependencies
+poetry install
+
+# Update dependencies
+poetry update
+```
