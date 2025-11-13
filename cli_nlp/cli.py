@@ -85,9 +85,6 @@ KNOWN_COMMANDS = ["history", "cache", "batch", "template", "config"]
     help="Copy command to clipboard (requires xclip or xsel)",
 )
 @click.option(
-    "--model", "-m", help="LLM model to use (default: from config or active model)"
-)
-@click.option(
     "--force",
     "-f",
     is_flag=True,
@@ -103,7 +100,7 @@ KNOWN_COMMANDS = ["history", "cache", "batch", "template", "config"]
     "--edit", is_flag=True, help="Edit command in your default editor before execution"
 )
 @click.pass_context
-def cli(ctx, execute, copy, model, force, refine, alternatives, edit):
+def cli(ctx, execute, copy, force, refine, alternatives, edit):
     """Convert natural language to shell commands using LLM providers."""
     # If a subcommand was invoked, let it handle it
     if ctx.invoked_subcommand is not None:
@@ -126,7 +123,6 @@ def cli(ctx, execute, copy, model, force, refine, alternatives, edit):
     command_runner.run(
         query_str,
         execute=execute,
-        model=model,
         copy=copy,
         force=force,
         refine=refine,
@@ -871,10 +867,9 @@ def cache_clear(yes):
 
 @cli.command(name="batch")
 @click.argument("file", required=True)
-@click.option("--model", "-m", help="LLM model to use")
-def batch_cmd(file, model):
+def batch_cmd(file):
     """Process multiple queries from a file."""
-    command_runner.run_batch(file, model=model)
+    command_runner.run_batch(file)
 
 
 # Template subcommand group
@@ -989,8 +984,6 @@ def main():
             "--help",
         ]:
             i += 1
-        elif args[i] in ["-m", "--model"]:
-            i += 2
         elif not args[i].startswith("-"):
             first_non_option = args[i]
             break
@@ -1006,17 +999,6 @@ def main():
         refine = "--refine" in args or "-r" in args
         alternatives = "--alternatives" in args or "-a" in args
         edit = "--edit" in args
-
-        # Extract model
-        model = None
-        if "--model" in args:
-            idx = args.index("--model")
-            if idx + 1 < len(args):
-                model = args[idx + 1]
-        elif "-m" in args:
-            idx = args.index("-m")
-            if idx + 1 < len(args):
-                model = args[idx + 1]
 
         # Extract query (everything that's not an option)
         query_parts = []
@@ -1036,8 +1018,6 @@ def main():
                 "--edit",
             ]:
                 i += 1
-            elif args[i] in ["-m", "--model"]:
-                i += 2
             elif not args[i].startswith("-"):
                 query_parts.append(args[i])
                 i += 1
@@ -1049,7 +1029,6 @@ def main():
             command_runner.run(
                 query_str,
                 execute=execute,
-                model=model,
                 copy=copy,
                 force=force,
                 refine=refine,

@@ -20,7 +20,6 @@ HELP_TEXT = """
 [bold]Options:[/bold]
     -e, --execute          Execute the generated command automatically
     -f, --force            Bypass safety check for modifying commands (use with caution)
-    -m, --model TEXT       OpenAI model to use (default: from config or gpt-4o-mini)
     -c, --copy             Copy command to clipboard (requires xclip or xsel)
     -r, --refine           Enter refinement mode to improve the command
     -a, --alternatives     Show alternative command options
@@ -52,7 +51,7 @@ HELP_TEXT = """
     # Basic usage
     qtc "list all python files in current directory"
     qtc "show disk usage" --execute
-    qtc "find files modified in last 24 hours" --model gpt-4o
+    qtc config model claude-3-opus-20240229
     
     # Refinement and alternatives
     qtc "find python files" --refine

@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- **Removed `--model` CLI option**: Queries now always use the active provider/model configured via `qtc config`, simplifying the command surface and avoiding per-invocation overrides.
 - **Removed `init-config` command**: The `init-config` command has been removed as it's redundant. The `config providers set` command now automatically creates the config file if it doesn't exist, providing a better interactive onboarding experience.
 - **Enhanced onboarding**: Fresh installations now show a welcoming message guiding users to run `qtc config providers set` for initial setup.
 

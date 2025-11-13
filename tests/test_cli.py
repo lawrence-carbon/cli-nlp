@@ -64,25 +64,6 @@ class TestCLI:
             assert result.exit_code == 2
 
     @patch("cli_nlp.cli.command_runner")
-    def test_cli_with_model_flag(self, mock_command_runner):
-        """Test CLI with --model flag."""
-        mock_command_runner.run.return_value = None
-
-        runner = CliRunner()
-        result = runner.invoke(cli, ["--model", "gpt-4o", "list files"])
-
-        # Verify run was called with model="gpt-4o"
-        # If run wasn't called, the command may have failed before reaching it
-        if mock_command_runner.run.called:
-            assert result.exit_code == 0
-            call_kwargs = mock_command_runner.run.call_args[1]
-            assert call_kwargs["model"] == "gpt-4o"
-        else:
-            # If run wasn't called, verify the flag was at least parsed by Click
-            # Exit code 2 is Click usage error, which means Click parsed the args
-            assert result.exit_code == 2
-
-    @patch("cli_nlp.cli.command_runner")
     def test_cli_with_copy_flag(self, mock_command_runner):
         """Test CLI with --copy flag."""
         mock_command_runner.run.return_value = None
@@ -783,12 +764,12 @@ class TestCLI:
 
         original_argv = sys.argv
         try:
-            sys.argv = ["qtc", "--execute", "--model", "gpt-4o", "list", "files"]
+            sys.argv = ["qtc", "--execute", "list", "files"]
             main()
             mock_command_runner.run.assert_called_once()
             call_kwargs = mock_command_runner.run.call_args[1]
             assert call_kwargs["execute"] is True
-            assert call_kwargs["model"] == "gpt-4o"
+            assert "model" not in call_kwargs
         finally:
             sys.argv = original_argv
 
