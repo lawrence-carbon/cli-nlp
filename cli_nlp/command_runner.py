@@ -4,7 +4,7 @@ import json
 import os
 import subprocess
 import sys
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 import click
 from rich.console import Console
@@ -71,6 +71,82 @@ Examples:
             ttl_seconds=config_manager.get("cache_ttl_seconds", 86400)
         )
         self.context_manager = context_manager or ContextManager()
+
+    @staticmethod
+    def _coerce_bool(value: Any) -> bool:
+        """Normalize truthy values coming back from LLM responses."""
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, (int, float)):
+            return bool(value)
+        if isinstance(value, str):
+            normalized = value.strip().lower()
+            if normalized in {"true", "yes", "y", "1"}:
+                return True
+            if normalized in {"false", "no", "n", "0"}:
+                return False
+        # Default to False for unknown values (safer assumption)
+        return False
+
+    @staticmethod
+    def _normalize_safety_level(value: Any, is_safe: Optional[bool]) -> str:
+        """Map varied safety level strings into canonical enum values."""
+        if isinstance(value, SafetyLevel):
+            return value.value
+        if isinstance(value, str):
+            normalized = value.strip().lower().replace("_", "-")
+            mapping = {
+                "safe": SafetyLevel.SAFE.value,
+                "read-only": SafetyLevel.SAFE.value,
+                "readonly": SafetyLevel.SAFE.value,
+                "read only": SafetyLevel.SAFE.value,
+                "non-modifying": SafetyLevel.SAFE.value,
+                "non modifying": SafetyLevel.SAFE.value,
+                "modifying": SafetyLevel.MODIFYING.value,
+                "unsafe": SafetyLevel.MODIFYING.value,
+                "dangerous": SafetyLevel.MODIFYING.value,
+                "write": SafetyLevel.MODIFYING.value,
+                "modifies": SafetyLevel.MODIFYING.value,
+            }
+            if normalized in mapping:
+                return mapping[normalized]
+        if isinstance(is_safe, bool):
+            return SafetyLevel.SAFE.value if is_safe else SafetyLevel.MODIFYING.value
+        # Fall back to the more conservative option
+        return SafetyLevel.MODIFYING.value
+
+    @classmethod
+    def _prepare_command_payload(cls, payload: Dict[str, Any]) -> Dict[str, Any]:
+        """Normalize raw payload data so it can be parsed by CommandResponse."""
+        normalized: Dict[str, Any] = dict(payload)
+
+        # Ensure command is a plain string
+        command = normalized.get("command", "")
+        if command is None:
+            command = ""
+        normalized["command"] = str(command).strip()
+
+        # Normalize boolean flags that can come back as strings
+        normalized["is_safe"] = cls._coerce_bool(normalized.get("is_safe", False))
+
+        # Normalize safety level and add default when missing
+        safety_level = normalized.get("safety_level")
+        normalized["safety_level"] = cls._normalize_safety_level(
+            safety_level, normalized["is_safe"]
+        )
+
+        # Explanation can be null or another type; coerce to string if needed
+        explanation = normalized.get("explanation")
+        if explanation is not None and not isinstance(explanation, str):
+            normalized["explanation"] = str(explanation)
+
+        return normalized
+
+    @classmethod
+    def _build_command_response(cls, payload: Dict[str, Any]) -> CommandResponse:
+        """Create a CommandResponse from raw payload data."""
+        normalized_payload = cls._prepare_command_payload(payload)
+        return CommandResponse(**normalized_payload)
     
     def _setup_litellm_api_key(self):
         """Setup LiteLLM API key from config."""
@@ -212,11 +288,7 @@ Examples:
                     data = json.loads(content)
                     
                     # Create CommandResponse from JSON
-                    command_response = CommandResponse(**data)
-                    
-                    # Ensure safety_level is set based on is_safe
-                    if command_response.safety_level is None:
-                        command_response.safety_level = SafetyLevel.SAFE if command_response.is_safe else SafetyLevel.MODIFYING
+                    command_response = self._build_command_response(data)
                     
                     # Cache the response
                     if use_cache:
@@ -243,11 +315,7 @@ Examples:
                         data = json.loads(content)
                         
                         # Create CommandResponse from JSON
-                        command_response = CommandResponse(**data)
-                        
-                        # Ensure safety_level is set based on is_safe
-                        if command_response.safety_level is None:
-                            command_response.safety_level = SafetyLevel.SAFE if command_response.is_safe else SafetyLevel.MODIFYING
+                        command_response = self._build_command_response(data)
                         
                         # Cache the response
                         if use_cache:
@@ -285,7 +353,7 @@ Examples:
                         data = json.loads(content)
                         
                         # Create CommandResponse from JSON
-                        command_response = CommandResponse(**data)
+                        command_response = self._build_command_response(data)
                         
                         # Cache the response
                         if use_cache:
@@ -394,23 +462,13 @@ Provide {count} distinct approaches, each with different flags, tools, or method
                 
                 alternatives = []
                 for alt_data in alternatives_data[:count]:
-                    # Handle safety_level - normalize "read-only" to "safe"
-                    safety_level_str = alt_data.get("safety_level", "modifying")
-                    if safety_level_str == "read-only":
-                        safety_level_str = "safe"
-                    try:
-                        safety_level = SafetyLevel(safety_level_str)
-                    except ValueError:
-                        # Fallback: use is_safe to determine safety_level
-                        is_safe = alt_data.get("is_safe", False)
-                        safety_level = SafetyLevel.SAFE if is_safe else SafetyLevel.MODIFYING
-                    
-                    alternatives.append(CommandResponse(
-                        command=alt_data.get("command", ""),
-                        is_safe=alt_data.get("is_safe", False),
-                        safety_level=safety_level,
-                        explanation=alt_data.get("explanation")
-                    ))
+                    payload = {
+                        "command": alt_data.get("command", ""),
+                        "is_safe": alt_data.get("is_safe", False),
+                        "safety_level": alt_data.get("safety_level"),
+                        "explanation": alt_data.get("explanation"),
+                    }
+                    alternatives.append(self._build_command_response(payload))
                 
                 return alternatives
         except Exception as e:
@@ -490,20 +548,29 @@ If it's a simple single command, return it as a single-item array."""
                 
                 commands = []
                 for cmd_data in commands_data:
+                    if isinstance(cmd_data, CommandResponse):
+                        commands.append(cmd_data)
+                        continue
                     if isinstance(cmd_data, str):
-                        # If it's just a string, create a basic CommandResponse
-                        commands.append(CommandResponse(
-                            command=cmd_data,
-                            is_safe=False,  # Assume unsafe if we don't know
-                            safety_level=SafetyLevel.MODIFYING,
-                        ))
+                        payload = {
+                            "command": cmd_data,
+                            "is_safe": False,
+                            "safety_level": SafetyLevel.MODIFYING.value,
+                        }
+                    elif isinstance(cmd_data, dict):
+                        payload = {
+                            "command": cmd_data.get("command", ""),
+                            "is_safe": cmd_data.get("is_safe", False),
+                            "safety_level": cmd_data.get("safety_level"),
+                            "explanation": cmd_data.get("explanation"),
+                        }
                     else:
-                        commands.append(CommandResponse(
-                            command=cmd_data.get("command", ""),
-                            is_safe=cmd_data.get("is_safe", False),
-                            safety_level=SafetyLevel(cmd_data.get("safety_level", "modifying")),
-                            explanation=cmd_data.get("explanation"),
-                        ))
+                        payload = {
+                            "command": str(cmd_data),
+                            "is_safe": False,
+                            "safety_level": SafetyLevel.MODIFYING.value,
+                        }
+                    commands.append(self._build_command_response(payload))
                 
                 overall_safe = all(cmd.is_safe for cmd in commands)
                 
