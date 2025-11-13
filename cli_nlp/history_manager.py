@@ -4,24 +4,23 @@ import json
 import os
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional
 
 from cli_nlp.models import SafetyLevel
 
 
 class HistoryEntry:
     """Represents a single history entry."""
-    
+
     def __init__(
         self,
         query: str,
         command: str,
         is_safe: bool,
         safety_level: SafetyLevel,
-        timestamp: Optional[datetime] = None,
-        explanation: Optional[str] = None,
+        timestamp: datetime | None = None,
+        explanation: str | None = None,
         executed: bool = False,
-        return_code: Optional[int] = None,
+        return_code: int | None = None,
     ):
         self.query = query
         self.command = command
@@ -31,8 +30,8 @@ class HistoryEntry:
         self.explanation = explanation
         self.executed = executed
         self.return_code = return_code
-    
-    def to_dict(self) -> Dict:
+
+    def to_dict(self) -> dict:
         """Convert to dictionary for JSON serialization."""
         return {
             "query": self.query,
@@ -44,9 +43,9 @@ class HistoryEntry:
             "executed": self.executed,
             "return_code": self.return_code,
         }
-    
+
     @classmethod
-    def from_dict(cls, data: Dict) -> "HistoryEntry":
+    def from_dict(cls, data: dict) -> "HistoryEntry":
         """Create from dictionary."""
         return cls(
             query=data["query"],
@@ -62,13 +61,13 @@ class HistoryEntry:
 
 class HistoryManager:
     """Manages command history storage and retrieval."""
-    
+
     def __init__(self, max_entries: int = 1000):
         self.max_entries = max_entries
         self.history_path = self._get_history_path()
-        self._history: List[HistoryEntry] = []
+        self._history: list[HistoryEntry] = []
         self._load_history()
-    
+
     @staticmethod
     def _get_history_path() -> Path:
         """Get the path to the history file."""
@@ -78,26 +77,26 @@ class HistoryManager:
             data_dir = Path(xdg_data) / "cli-nlp"
         else:
             data_dir = Path.home() / ".local" / "share" / "cli-nlp"
-        
+
         data_dir.mkdir(parents=True, exist_ok=True)
         return data_dir / "history.json"
-    
+
     def _load_history(self):
         """Load history from file."""
         if not self.history_path.exists():
             self._history = []
             return
-        
+
         try:
-            with open(self.history_path, 'r') as f:
+            with open(self.history_path) as f:
                 data = json.load(f)
                 self._history = [
                     HistoryEntry.from_dict(entry) for entry in data
                 ]
-        except (json.JSONDecodeError, KeyError, ValueError) as e:
+        except (json.JSONDecodeError, KeyError, ValueError):
             # If history file is corrupted, start fresh
             self._history = []
-    
+
     def _save_history(self):
         """Save history to file."""
         try:
@@ -110,16 +109,16 @@ class HistoryManager:
         except Exception:
             # Silently fail if we can't save history
             pass
-    
+
     def add_entry(
         self,
         query: str,
         command: str,
         is_safe: bool,
         safety_level: SafetyLevel,
-        explanation: Optional[str] = None,
+        explanation: str | None = None,
         executed: bool = False,
-        return_code: Optional[int] = None,
+        return_code: int | None = None,
     ) -> HistoryEntry:
         """Add a new entry to history."""
         entry = HistoryEntry(
@@ -131,24 +130,24 @@ class HistoryManager:
             executed=executed,
             return_code=return_code,
         )
-        
+
         self._history.append(entry)
-        
+
         # Keep only the most recent entries
         if len(self._history) > self.max_entries:
             self._history = self._history[-self.max_entries:]
-        
+
         self._save_history()
         return entry
-    
-    def get_all(self, limit: Optional[int] = None) -> List[HistoryEntry]:
+
+    def get_all(self, limit: int | None = None) -> list[HistoryEntry]:
         """Get all history entries, optionally limited."""
         entries = self._history
         if limit:
             entries = entries[-limit:]
         return list(reversed(entries))  # Most recent first
-    
-    def search(self, query: str) -> List[HistoryEntry]:
+
+    def search(self, query: str) -> list[HistoryEntry]:
         """Search history by query or command."""
         query_lower = query.lower()
         results = []
@@ -159,20 +158,20 @@ class HistoryManager:
             ):
                 results.append(entry)
         return list(reversed(results))  # Most recent first
-    
-    def get_by_id(self, entry_id: int) -> Optional[HistoryEntry]:
+
+    def get_by_id(self, entry_id: int) -> HistoryEntry | None:
         """Get entry by index (0-based, most recent first)."""
         if entry_id < 0 or entry_id >= len(self._history):
             return None
         # Convert to reverse index
         reverse_index = len(self._history) - 1 - entry_id
         return self._history[reverse_index]
-    
+
     def clear(self):
         """Clear all history."""
         self._history = []
         self._save_history()
-    
+
     def export(self, format: str = "json") -> str:
         """Export history in specified format."""
         if format == "json":
@@ -183,7 +182,7 @@ class HistoryManager:
         elif format == "csv":
             import csv
             from io import StringIO
-            
+
             output = StringIO()
             writer = csv.writer(output)
             writer.writerow([

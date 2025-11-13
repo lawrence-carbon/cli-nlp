@@ -3,22 +3,21 @@
 import hashlib
 import json
 import os
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
-from typing import Dict, Optional
 
 from cli_nlp.models import CommandResponse, SafetyLevel
 
 
 class CacheEntry:
     """Represents a cached command response."""
-    
+
     def __init__(
         self,
         command: str,
         is_safe: bool,
         safety_level: SafetyLevel,
-        explanation: Optional[str],
+        explanation: str | None,
         timestamp: datetime,
         ttl_seconds: int = 86400,  # Default 24 hours
     ):
@@ -28,13 +27,13 @@ class CacheEntry:
         self.explanation = explanation
         self.timestamp = timestamp
         self.ttl_seconds = ttl_seconds
-    
+
     def is_expired(self) -> bool:
         """Check if cache entry has expired."""
         age = datetime.now() - self.timestamp
         return age.total_seconds() > self.ttl_seconds
-    
-    def to_dict(self) -> Dict:
+
+    def to_dict(self) -> dict:
         """Convert to dictionary for JSON serialization."""
         return {
             "command": self.command,
@@ -44,9 +43,9 @@ class CacheEntry:
             "timestamp": self.timestamp.isoformat(),
             "ttl_seconds": self.ttl_seconds,
         }
-    
+
     @classmethod
-    def from_dict(cls, data: Dict) -> "CacheEntry":
+    def from_dict(cls, data: dict) -> "CacheEntry":
         """Create from dictionary."""
         return cls(
             command=data["command"],
@@ -56,7 +55,7 @@ class CacheEntry:
             timestamp=datetime.fromisoformat(data["timestamp"]),
             ttl_seconds=data.get("ttl_seconds", 86400),
         )
-    
+
     def to_command_response(self) -> CommandResponse:
         """Convert to CommandResponse."""
         return CommandResponse(
@@ -69,15 +68,15 @@ class CacheEntry:
 
 class CacheManager:
     """Manages command caching to reduce API calls."""
-    
+
     def __init__(self, ttl_seconds: int = 86400, max_size: int = 1000):
         self.ttl_seconds = ttl_seconds
         self.max_size = max_size
         self.cache_path = self._get_cache_path()
-        self._cache: Dict[str, CacheEntry] = {}
+        self._cache: dict[str, CacheEntry] = {}
         self._stats = {"hits": 0, "misses": 0}
         self._load_cache()
-    
+
     @staticmethod
     def _get_cache_path() -> Path:
         """Get the path to the cache file."""
@@ -87,23 +86,23 @@ class CacheManager:
             cache_dir = Path(xdg_cache) / "cli-nlp"
         else:
             cache_dir = Path.home() / ".cache" / "cli-nlp"
-        
+
         cache_dir.mkdir(parents=True, exist_ok=True)
         return cache_dir / "command_cache.json"
-    
-    def _query_hash(self, query: str, model: Optional[str] = None) -> str:
+
+    def _query_hash(self, query: str, model: str | None = None) -> str:
         """Generate hash for query (and optionally model)."""
         key = f"{query}:{model or 'default'}"
         return hashlib.sha256(key.encode()).hexdigest()
-    
+
     def _load_cache(self):
         """Load cache from file."""
         if not self.cache_path.exists():
             self._cache = {}
             return
-        
+
         try:
-            with open(self.cache_path, 'r') as f:
+            with open(self.cache_path) as f:
                 data = json.load(f)
                 # Load entries and filter expired ones
                 for key, entry_data in data.items():
@@ -113,7 +112,7 @@ class CacheManager:
         except (json.JSONDecodeError, KeyError, ValueError):
             # If cache file is corrupted, start fresh
             self._cache = {}
-    
+
     def _save_cache(self):
         """Save cache to file."""
         try:
@@ -123,7 +122,7 @@ class CacheManager:
                 for key, entry in self._cache.items()
                 if not entry.is_expired()
             }
-            
+
             # Limit cache size
             if len(valid_cache) > self.max_size:
                 # Remove oldest entries
@@ -132,47 +131,47 @@ class CacheManager:
                     key=lambda x: x[1]["timestamp"],
                 )
                 valid_cache = dict(sorted_entries[-self.max_size:])
-            
+
             with open(self.cache_path, 'w') as f:
                 json.dump(valid_cache, f, indent=2)
         except Exception:
             # Silently fail if we can't save cache
             pass
-    
+
     def get(
         self,
         query: str,
-        model: Optional[str] = None,
-    ) -> Optional[CommandResponse]:
+        model: str | None = None,
+    ) -> CommandResponse | None:
         """Get cached command response if available and not expired."""
         cache_key = self._query_hash(query, model)
         entry = self._cache.get(cache_key)
-        
+
         if entry is None:
             self._stats["misses"] += 1
             return None
-        
+
         if entry.is_expired():
             # Remove expired entry
             del self._cache[cache_key]
             self._save_cache()
             self._stats["misses"] += 1
             return None
-        
+
         self._stats["hits"] += 1
         return entry.to_command_response()
-    
+
     def set(
         self,
         query: str,
         command_response: CommandResponse,
-        model: Optional[str] = None,
-        ttl_seconds: Optional[int] = None,
+        model: str | None = None,
+        ttl_seconds: int | None = None,
     ):
         """Cache a command response."""
         cache_key = self._query_hash(query, model)
         ttl = ttl_seconds or self.ttl_seconds
-        
+
         entry = CacheEntry(
             command=command_response.command,
             is_safe=command_response.is_safe,
@@ -181,9 +180,9 @@ class CacheManager:
             timestamp=datetime.now(),
             ttl_seconds=ttl,
         )
-        
+
         self._cache[cache_key] = entry
-        
+
         # Limit cache size
         if len(self._cache) > self.max_size:
             # Remove oldest entries
@@ -192,15 +191,15 @@ class CacheManager:
                 key=lambda x: x[1].timestamp,
             )
             self._cache = dict(sorted_entries[-self.max_size:])
-        
+
         self._save_cache()
-    
+
     def clear(self):
         """Clear all cache entries."""
         self._cache = {}
         self._save_cache()
-    
-    def get_stats(self) -> Dict[str, int]:
+
+    def get_stats(self) -> dict[str, int]:
         """Get cache statistics."""
         total = self._stats["hits"] + self._stats["misses"]
         hit_rate = (
@@ -208,7 +207,7 @@ class CacheManager:
             if total > 0
             else 0.0
         )
-        
+
         return {
             "hits": self._stats["hits"],
             "misses": self._stats["misses"],

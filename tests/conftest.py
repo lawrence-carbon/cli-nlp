@@ -1,9 +1,7 @@
 """Pytest configuration and fixtures for CLI-NLP tests."""
 
 import json
-import tempfile
-from pathlib import Path
-from unittest.mock import MagicMock, Mock
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -107,13 +105,13 @@ def mock_context_manager():
 def mock_openai_client():
     """Create a mocked OpenAI client."""
     client = MagicMock()
-    
+
     # Mock the chat completions API
     mock_chat = MagicMock()
     client.chat = mock_chat
     client.beta = MagicMock()
     client.beta.chat = MagicMock()
-    
+
     return client
 
 
@@ -169,13 +167,13 @@ def mock_openai_response_structured(sample_command_response):
     """Mock OpenAI structured response (using parse)."""
     mock_message = MagicMock()
     mock_message.parsed = sample_command_response
-    
+
     mock_choice = MagicMock()
     mock_choice.message = mock_message
-    
+
     mock_response = MagicMock()
     mock_response.choices = [mock_choice]
-    
+
     return mock_response
 
 
@@ -189,13 +187,13 @@ def mock_openai_response_json():
         "safety_level": "safe",
         "explanation": "List files in current directory",
     })
-    
+
     mock_choice = MagicMock()
     mock_choice.message = mock_message
-    
+
     mock_response = MagicMock()
     mock_response.choices = [mock_choice]
-    
+
     return mock_response
 
 
@@ -225,13 +223,13 @@ def mock_openai_alternatives_response():
             },
         ]
     })
-    
+
     mock_choice = MagicMock()
     mock_choice.message = mock_message
-    
+
     mock_response = MagicMock()
     mock_response.choices = [mock_choice]
-    
+
     return mock_response
 
 
@@ -259,12 +257,12 @@ def mock_openai_multi_command_response():
         "overall_safe": True,
         "explanation": "Find Python files and count lines",
     })
-    
+
     mock_choice = MagicMock()
     mock_choice.message = mock_message
-    
+
     mock_response = MagicMock()
     mock_response.choices = [mock_choice]
-    
+
     return mock_response
 
