@@ -161,18 +161,17 @@ qtc "find files larger than 100MB" --copy
 # Generates command and copies it to clipboard
 ```
 
-### Use Different Model
+### Switch Active Model
 
 ```bash
-qtc "complex query" --model gpt-4o
-# or
-qtc "complex query" --model claude-3-opus-20240229
+qtc config model claude-3-opus-20240229
+# Updates the active model used for all subsequent queries
 ```
 
 ### Combine Options
 
 ```bash
-qtc "kill process on port 3000" --execute --model gpt-4o-mini
+qtc "kill process on port 3000" --execute --force
 ```
 
 ## Examples
@@ -286,7 +285,6 @@ Run `qtc config providers set` to see all available providers.
 
 - `--execute, -e`: Execute the generated command automatically
 - `--force, -f`: Bypass safety check for modifying commands (use with caution)
-- `--model MODEL, -m MODEL`: Specify LLM model (overrides config default)
 - `--copy, -c`: Copy command to clipboard (requires xclip or xsel)
 - `config providers`: Manage LLM provider configurations (subcommand)
 - `--help, -h`: Show help message
