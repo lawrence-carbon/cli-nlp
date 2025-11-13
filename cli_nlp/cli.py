@@ -68,7 +68,7 @@ def _interactive_query() -> str:
 
 
 # Known commands that should be treated as subcommands
-KNOWN_COMMANDS = ["init-config", "history", "cache", "batch", "template", "config"]
+KNOWN_COMMANDS = ["history", "cache", "batch", "template", "config"]
 
 
 @click.group(
@@ -133,12 +133,6 @@ def cli(ctx, execute, copy, model, force, refine, alternatives, edit):
         alternatives=alternatives,
         edit=edit,
     )
-
-
-@cli.command(name="init-config")
-def init_config_cmd():
-    """Create a default config file template."""
-    config_manager.create_default()
 
 
 # Config subcommand group

@@ -83,14 +83,39 @@ Examples:
         
         api_key = self.config_manager.get_api_key()
         active_provider = self.config_manager.get_active_provider()
+        config = self.config_manager.load()
+        providers = config.get("providers", {})
+        config_exists = self.config_manager.config_path.exists()
         
         if not api_key:
             config_path = self.config_manager.config_path
-            console.print("[red]Error: API key not found for active provider.[/red]")
-            console.print("Please either:")
-            console.print(f"  1. Run: qtc config providers set")
-            console.print(f"  2. Set provider-specific environment variable")
-            console.print(f"  3. Add provider config to: {config_path}")
+            
+            # Detect fresh installation (no config file or no providers)
+            if not config_exists or not providers:
+                console.print("[bold yellow]Welcome to CLI-NLP! 🎉[/bold yellow]")
+                console.print("\n[bold]First-time setup required:[/bold]")
+                console.print("You need to configure an LLM provider to get started.\n")
+                console.print("[bold cyan]Quick start:[/bold cyan]")
+                console.print("  Run: [green]qtc config providers set[/green]")
+                console.print("\nThis will guide you through:")
+                console.print("  • Selecting a provider (OpenAI, Anthropic, Google, etc.)")
+                console.print("  • Choosing a model")
+                console.print("  • Entering your API key securely")
+                console.print("\n[dim]The config file will be created automatically at:[/dim]")
+                console.print(f"[dim]{config_path}[/dim]")
+                console.print("\n[dim]Alternative: Set environment variables (e.g., OPENAI_API_KEY)[/dim]")
+            else:
+                # Config exists but no active provider or API key
+                console.print("[red]Error: API key not found for active provider.[/red]")
+                if not active_provider:
+                    console.print("\n[yellow]No active provider configured.[/yellow]")
+                    console.print("Run: [green]qtc config providers set[/green] to configure a provider.")
+                else:
+                    console.print(f"\n[yellow]Active provider '{active_provider}' is missing an API key.[/yellow]")
+                    console.print("Please either:")
+                    console.print(f"  1. Run: [green]qtc config providers set[/green]")
+                    console.print(f"  2. Set provider-specific environment variable")
+                    console.print(f"  3. Add provider config to: {config_path}")
             sys.exit(1)
         
         # Set API key in environment for LiteLLM

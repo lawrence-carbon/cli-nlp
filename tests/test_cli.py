@@ -156,17 +156,6 @@ class TestCLI:
             # This test verifies the flag parsing works
             assert result.exit_code in [0, 2]  # 2 is Click usage error, 0 is success
 
-    @patch("cli_nlp.cli.config_manager")
-    def test_init_config_command(self, mock_config_manager):
-        """Test init-config command."""
-        mock_config_manager.create_default.return_value = True
-
-        runner = CliRunner()
-        result = runner.invoke(cli, ["init-config"])
-
-        assert result.exit_code == 0
-        mock_config_manager.create_default.assert_called_once()
-
     @patch("cli_nlp.cli.history_manager")
     def test_history_list_command(self, mock_history_manager):
         """Test history list command."""
@@ -778,7 +767,7 @@ class TestCLI:
 
         original_argv = sys.argv
         try:
-            sys.argv = ["qtc", "init-config"]
+            sys.argv = ["qtc", "config"]
             with patch("cli_nlp.cli.cli") as mock_cli:
                 main()
                 mock_cli.assert_called_once()

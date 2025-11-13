@@ -28,7 +28,6 @@ HELP_TEXT = """
     -h, --help             Show this message and exit
 
 [bold]Commands:[/bold]
-    init-config            Create a default config file template
     batch <file>           Process multiple queries from a file (one per line)
     
     history                 Manage command history
@@ -76,7 +75,8 @@ HELP_TEXT = """
     qtc batch queries.txt
     
     # Configuration
-    qtc init-config
+    qtc config providers set    # Configure LLM provider (interactive setup)
+    qtc config show              # Show current configuration
 """
 
 

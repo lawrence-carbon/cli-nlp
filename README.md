@@ -94,18 +94,7 @@ qtc config providers set
 # 3. Entering your API key securely
 ```
 
-**Option B: Using config file:**
-```bash
-# Create config file template
-qtc init-config
-# or: poetry run qtc init-config
-
-# Edit the config file and add your provider configuration
-# Location: ~/.config/cli-nlp/config.json
-nano ~/.config/cli-nlp/config.json
-```
-
-**Option C: Using environment variables:**
+**Option B: Using environment variables:**
 ```bash
 # Set provider-specific environment variable
 export OPENAI_API_KEY='your-api-key-here'
@@ -235,16 +224,17 @@ The tool uses a JSON config file located at `~/.config/cli-nlp/config.json` (or 
 
 ### Creating Config File
 
-```bash
-qtc init-config
-# or: poetry run qtc init-config
-```
-
-This creates a template config file. Then configure a provider:
+The config file is created automatically when you configure your first provider:
 
 ```bash
 qtc config providers set
 ```
+
+This interactive command will:
+- Create the config file if it doesn't exist
+- Guide you through provider selection
+- Help you choose a model
+- Securely store your API key
 
 The config file has restrictive permissions (600) to protect your API keys.
 
@@ -298,7 +288,6 @@ Run `qtc config providers set` to see all available providers.
 - `--force, -f`: Bypass safety check for modifying commands (use with caution)
 - `--model MODEL, -m MODEL`: Specify LLM model (overrides config default)
 - `--copy, -c`: Copy command to clipboard (requires xclip or xsel)
-- `init-config`: Create a default config file template (subcommand)
 - `config providers`: Manage LLM provider configurations (subcommand)
 - `--help, -h`: Show help message
 

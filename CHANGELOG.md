@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **Removed `init-config` command**: The `init-config` command has been removed as it's redundant. The `config providers set` command now automatically creates the config file if it doesn't exist, providing a better interactive onboarding experience.
+- **Enhanced onboarding**: Fresh installations now show a welcoming message guiding users to run `qtc config providers set` for initial setup.
+
 ### Added
 - Test coverage badge in README
 - License file (MIT)
