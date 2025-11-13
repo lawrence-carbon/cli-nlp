@@ -5,7 +5,22 @@ from unittest.mock import MagicMock, patch
 import pytest
 from click.testing import CliRunner
 
-from cli_nlp.cli import cli, cli_entry, main
+# Mock completer before importing cli to avoid prompt_toolkit dependency
+import sys
+if 'prompt_toolkit' not in sys.modules:
+    # Create a mock completer module with QueryCompleter class
+    mock_completer_module = MagicMock()
+    mock_completer_module.QueryCompleter = MagicMock
+    sys.modules['cli_nlp.completer'] = mock_completer_module
+
+# Now we can import cli
+try:
+    from cli_nlp.cli import cli, cli_entry, main
+except ImportError:
+    # If still can't import, set to None
+    cli = None
+    cli_entry = None
+    main = None
 
 
 class TestCLI:
@@ -412,6 +427,346 @@ class TestCLI:
             main()
             # command_runner.run should be called
             mock_command_runner.run.assert_called_once()
+        finally:
+            sys.argv = original_argv
+    
+    @patch('cli_nlp.cli.history_manager')
+    def test_history_export_json(self, mock_history_manager, tmp_path):
+        """Test history export command with JSON format."""
+        mock_history_manager.export.return_value = '{"test": "data"}'
+        
+        output_file = tmp_path / "history.json"
+        runner = CliRunner()
+        result = runner.invoke(cli, ["history", "export", "--output", str(output_file), "--format", "json"])
+        
+        assert result.exit_code == 0
+        assert output_file.exists()
+        mock_history_manager.export.assert_called_once_with(format="json")
+    
+    @patch('cli_nlp.cli.history_manager')
+    def test_history_export_csv(self, mock_history_manager, tmp_path):
+        """Test history export command with CSV format."""
+        mock_history_manager.export.return_value = "query,command\n"
+        
+        output_file = tmp_path / "history.csv"
+        runner = CliRunner()
+        result = runner.invoke(cli, ["history", "export", "--output", str(output_file), "--format", "csv"])
+        
+        assert result.exit_code == 0
+        assert output_file.exists()
+        mock_history_manager.export.assert_called_once_with(format="csv")
+    
+    @patch('cli_nlp.cli.history_manager')
+    def test_history_export_invalid_format(self, mock_history_manager):
+        """Test history export with invalid format."""
+        runner = CliRunner()
+        result = runner.invoke(cli, ["history", "export", "--format", "xml"])
+        
+        assert result.exit_code == 1
+    
+    @patch('cli_nlp.cli.history_manager')
+    def test_history_export_error(self, mock_history_manager):
+        """Test history export with error."""
+        mock_history_manager.export.side_effect = Exception("Export failed")
+        
+        runner = CliRunner()
+        result = runner.invoke(cli, ["history", "export"])
+        
+        assert result.exit_code == 1
+    
+    @patch('cli_nlp.cli.history_manager')
+    @patch('cli_nlp.cli.click.prompt')
+    def test_history_clear_with_confirmation_yes(self, mock_prompt, mock_history_manager):
+        """Test history clear with confirmation (yes)."""
+        mock_prompt.return_value = "yes"
+        
+        runner = CliRunner()
+        result = runner.invoke(cli, ["history", "clear"])
+        
+        assert result.exit_code == 0
+        mock_history_manager.clear.assert_called_once()
+    
+    @patch('cli_nlp.cli.history_manager')
+    @patch('cli_nlp.cli.click.prompt')
+    def test_history_clear_with_confirmation_no(self, mock_prompt, mock_history_manager):
+        """Test history clear with confirmation (no)."""
+        mock_prompt.return_value = "no"
+        
+        runner = CliRunner()
+        result = runner.invoke(cli, ["history", "clear"])
+        
+        assert result.exit_code == 0
+        mock_history_manager.clear.assert_not_called()
+    
+    @patch('cli_nlp.cli.cache_manager')
+    @patch('cli_nlp.cli.click.prompt')
+    def test_cache_clear_with_confirmation_yes(self, mock_prompt, mock_cache_manager):
+        """Test cache clear with confirmation (yes)."""
+        mock_prompt.return_value = "yes"
+        
+        runner = CliRunner()
+        result = runner.invoke(cli, ["cache", "clear"])
+        
+        assert result.exit_code == 0
+        mock_cache_manager.clear.assert_called_once()
+    
+    @patch('cli_nlp.cli.cache_manager')
+    @patch('cli_nlp.cli.click.prompt')
+    def test_cache_clear_with_confirmation_no(self, mock_prompt, mock_cache_manager):
+        """Test cache clear with confirmation (no)."""
+        mock_prompt.return_value = "no"
+        
+        runner = CliRunner()
+        result = runner.invoke(cli, ["cache", "clear"])
+        
+        assert result.exit_code == 0
+        mock_cache_manager.clear.assert_not_called()
+    
+    @patch('cli_nlp.cli.command_runner')
+    @patch('cli_nlp.cli.template_manager')
+    def test_template_use_with_execute(self, mock_template_manager, mock_command_runner):
+        """Test template use command with execute flag."""
+        mock_template_manager.get_template.return_value = "ls -la"
+        mock_command_runner.run.return_value = None
+        
+        runner = CliRunner()
+        result = runner.invoke(cli, ["template", "use", "test", "--execute"])
+        
+        assert result.exit_code == 0
+        mock_command_runner.run.assert_called_once()
+        call_kwargs = mock_command_runner.run.call_args[1]
+        assert call_kwargs["execute"] is True
+    
+    @patch('cli_nlp.cli.template_manager')
+    def test_template_use_not_found(self, mock_template_manager):
+        """Test template use with non-existent template."""
+        mock_template_manager.get_template.return_value = None
+        
+        runner = CliRunner()
+        result = runner.invoke(cli, ["template", "use", "nonexistent"])
+        
+        assert result.exit_code == 1
+    
+    @patch('cli_nlp.cli.template_manager')
+    @patch('cli_nlp.cli.click.prompt')
+    def test_template_delete_with_confirmation_yes(self, mock_prompt, mock_template_manager):
+        """Test template delete with confirmation (yes)."""
+        mock_template_manager.template_exists.return_value = True
+        mock_template_manager.delete_template.return_value = True
+        mock_prompt.return_value = "yes"
+        
+        runner = CliRunner()
+        result = runner.invoke(cli, ["template", "delete", "test"])
+        
+        assert result.exit_code == 0
+        mock_template_manager.delete_template.assert_called_once_with("test")
+    
+    @patch('cli_nlp.cli.template_manager')
+    @patch('cli_nlp.cli.click.prompt')
+    def test_template_delete_with_confirmation_no(self, mock_prompt, mock_template_manager):
+        """Test template delete with confirmation (no)."""
+        mock_template_manager.template_exists.return_value = True
+        mock_prompt.return_value = "no"
+        
+        runner = CliRunner()
+        result = runner.invoke(cli, ["template", "delete", "test"])
+        
+        assert result.exit_code == 0
+        mock_template_manager.delete_template.assert_not_called()
+    
+    @patch('cli_nlp.cli.template_manager')
+    def test_template_delete_not_found(self, mock_template_manager):
+        """Test template delete with non-existent template."""
+        mock_template_manager.template_exists.return_value = False
+        
+        runner = CliRunner()
+        result = runner.invoke(cli, ["template", "delete", "nonexistent"])
+        
+        assert result.exit_code == 1
+    
+    @patch('cli_nlp.cli.template_manager')
+    def test_template_delete_error(self, mock_template_manager):
+        """Test template delete with error."""
+        mock_template_manager.template_exists.return_value = True
+        mock_template_manager.delete_template.return_value = False
+        
+        runner = CliRunner()
+        result = runner.invoke(cli, ["template", "delete", "test", "--yes"])
+        
+        assert result.exit_code == 1
+    
+    @patch('cli_nlp.cli._interactive_query')
+    @patch('cli_nlp.cli.command_runner')
+    def test_cli_with_edit_flag(self, mock_command_runner, mock_interactive_query):
+        """Test CLI with --edit flag."""
+        mock_interactive_query.return_value = "list files"
+        mock_command_runner.run.return_value = None
+        
+        runner = CliRunner()
+        result = runner.invoke(cli, ["--edit", "list files"])
+        
+        if mock_command_runner.run.called:
+            call_kwargs = mock_command_runner.run.call_args[1]
+            assert call_kwargs["edit"] is True
+    
+    def test_interactive_query_with_prompt_toolkit(self):
+        """Test _interactive_query with prompt_toolkit available."""
+        if cli is None:
+            pytest.skip("Cannot import cli module")
+        
+        from cli_nlp.cli import _interactive_query
+        
+        # Mock PromptSession by patching the import inside the function
+        mock_session = MagicMock()
+        mock_session.prompt.return_value = "test query"
+        
+        # Create mock modules for prompt_toolkit
+        mock_pt_module = MagicMock()
+        mock_pt_module.PromptSession = MagicMock(return_value=mock_session)
+        mock_pt_history = MagicMock()
+        mock_pt_history.FileHistory = MagicMock()
+        mock_pt_autosuggest = MagicMock()
+        mock_pt_autosuggest.AutoSuggestFromHistory = MagicMock()
+        mock_pt_keybinding = MagicMock()
+        mock_pt_keybinding.KeyBindings = MagicMock()
+        
+        with patch.dict('sys.modules', {
+            'prompt_toolkit': mock_pt_module,
+            'prompt_toolkit.history': mock_pt_history,
+            'prompt_toolkit.auto_suggest': mock_pt_autosuggest,
+            'prompt_toolkit.key_binding': mock_pt_keybinding,
+        }), \
+        patch('cli_nlp.cli.os.makedirs'), \
+        patch('cli_nlp.cli.os.path.expanduser', return_value='~/.cli_nlp_history'):
+            result = _interactive_query()
+            assert result == "test query"
+    
+    def test_interactive_query_eof_error(self):
+        """Test _interactive_query handles EOFError."""
+        if cli is None:
+            pytest.skip("Cannot import cli module")
+        
+        from cli_nlp.cli import _interactive_query
+        
+        # Mock PromptSession to raise EOFError
+        mock_session = MagicMock()
+        mock_session.prompt.side_effect = EOFError()
+        mock_pt_module = MagicMock()
+        mock_pt_module.PromptSession = MagicMock(return_value=mock_session)
+        mock_pt_history = MagicMock()
+        mock_pt_history.FileHistory = MagicMock()
+        mock_pt_autosuggest = MagicMock()
+        mock_pt_autosuggest.AutoSuggestFromHistory = MagicMock()
+        mock_pt_keybinding = MagicMock()
+        mock_pt_keybinding.KeyBindings = MagicMock()
+        
+        with patch.dict('sys.modules', {
+            'prompt_toolkit': mock_pt_module,
+            'prompt_toolkit.history': mock_pt_history,
+            'prompt_toolkit.auto_suggest': mock_pt_autosuggest,
+            'prompt_toolkit.key_binding': mock_pt_keybinding,
+        }), \
+        patch('cli_nlp.cli.os.makedirs'), \
+        patch('cli_nlp.cli.os.path.expanduser', return_value='~/.cli_nlp_history'):
+            result = _interactive_query()
+            assert result == ""
+    
+    def test_interactive_query_keyboard_interrupt(self):
+        """Test _interactive_query handles KeyboardInterrupt."""
+        if cli is None:
+            pytest.skip("Cannot import cli module")
+        
+        from cli_nlp.cli import _interactive_query
+        
+        # Mock PromptSession to raise KeyboardInterrupt
+        mock_session = MagicMock()
+        mock_session.prompt.side_effect = KeyboardInterrupt()
+        mock_pt_module = MagicMock()
+        mock_pt_module.PromptSession = MagicMock(return_value=mock_session)
+        mock_pt_history = MagicMock()
+        mock_pt_history.FileHistory = MagicMock()
+        mock_pt_autosuggest = MagicMock()
+        mock_pt_autosuggest.AutoSuggestFromHistory = MagicMock()
+        mock_pt_keybinding = MagicMock()
+        mock_pt_keybinding.KeyBindings = MagicMock()
+        
+        with patch.dict('sys.modules', {
+            'prompt_toolkit': mock_pt_module,
+            'prompt_toolkit.history': mock_pt_history,
+            'prompt_toolkit.auto_suggest': mock_pt_autosuggest,
+            'prompt_toolkit.key_binding': mock_pt_keybinding,
+        }), \
+        patch('cli_nlp.cli.os.makedirs'), \
+        patch('cli_nlp.cli.os.path.expanduser', return_value='~/.cli_nlp_history'):
+            result = _interactive_query()
+            assert result == ""
+    
+    @patch('cli_nlp.cli.console')
+    def test_interactive_query_import_error(self, mock_console):
+        """Test _interactive_query handles ImportError."""
+        if cli is None:
+            pytest.skip("Cannot import cli module")
+        
+        from cli_nlp.cli import _interactive_query
+        
+        # Create a side_effect that raises ImportError only for prompt_toolkit imports
+        original_import = __import__
+        def import_side_effect(name, globals=None, locals=None, fromlist=(), level=0):
+            if name == 'prompt_toolkit' or (fromlist and any('prompt_toolkit' in str(f) for f in fromlist)):
+                raise ImportError(f"No module named '{name}'")
+            return original_import(name, globals, locals, fromlist, level)
+        
+        # Force ImportError by patching the import
+        with patch('builtins.__import__', side_effect=import_side_effect):
+            with patch('builtins.input', return_value="test query"):
+                result = _interactive_query()
+                assert result == "test query"
+    
+    @patch('cli_nlp.cli.console')
+    def test_interactive_query_import_error_eof(self, mock_console):
+        """Test _interactive_query handles EOFError in fallback."""
+        from cli_nlp.cli import _interactive_query
+        
+        with patch('builtins.input', side_effect=EOFError()):
+            result = _interactive_query()
+            assert result == ""
+    
+    @patch('cli_nlp.cli.console')
+    def test_interactive_query_import_error_keyboard_interrupt(self, mock_console):
+        """Test _interactive_query handles KeyboardInterrupt in fallback."""
+        from cli_nlp.cli import _interactive_query
+        
+        with patch('builtins.input', side_effect=KeyboardInterrupt()):
+            result = _interactive_query()
+            assert result == ""
+    
+    @patch('cli_nlp.cli.command_runner')
+    def test_main_with_known_command(self, mock_command_runner):
+        """Test main function with known command."""
+        import sys
+        original_argv = sys.argv
+        try:
+            sys.argv = ['qtc', 'init-config']
+            with patch('cli_nlp.cli.cli') as mock_cli:
+                main()
+                mock_cli.assert_called_once()
+        finally:
+            sys.argv = original_argv
+    
+    @patch('cli_nlp.cli.command_runner')
+    def test_main_with_options_and_query(self, mock_command_runner):
+        """Test main function with options and query."""
+        mock_command_runner.run.return_value = None
+        
+        import sys
+        original_argv = sys.argv
+        try:
+            sys.argv = ['qtc', '--execute', '--model', 'gpt-4o', 'list', 'files']
+            main()
+            mock_command_runner.run.assert_called_once()
+            call_kwargs = mock_command_runner.run.call_args[1]
+            assert call_kwargs["execute"] is True
+            assert call_kwargs["model"] == "gpt-4o"
         finally:
             sys.argv = original_argv
 

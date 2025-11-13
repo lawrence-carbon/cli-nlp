@@ -417,6 +417,11 @@ class TestTemplateManager:
     
     def test_list_templates(self, mock_template_manager):
         """Test listing templates."""
+        # Clear any existing templates first
+        existing = mock_template_manager.list_templates()
+        for name in list(existing.keys()):
+            mock_template_manager.delete_template(name)
+        
         mock_template_manager.save_template("t1", "cmd1", "Desc1")
         mock_template_manager.save_template("t2", "cmd2", "Desc2")
         
