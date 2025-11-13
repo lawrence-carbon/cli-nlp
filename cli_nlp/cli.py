@@ -67,7 +67,7 @@ def _interactive_query() -> str:
 
 
 # Known commands that should be treated as subcommands
-KNOWN_COMMANDS = ['init-config', 'history', 'cache', 'batch', 'template']
+KNOWN_COMMANDS = ['init-config', 'history', 'cache', 'batch', 'template', 'config']
 
 
 @click.group(
@@ -76,14 +76,14 @@ KNOWN_COMMANDS = ['init-config', 'history', 'cache', 'batch', 'template']
 )
 @click.option('--execute', '-e', is_flag=True, help='Execute the generated command automatically')
 @click.option('--copy', '-c', is_flag=True, help='Copy command to clipboard (requires xclip or xsel)')
-@click.option('--model', '-m', help='OpenAI model to use (default: from config or gpt-4o-mini)')
+@click.option('--model', '-m', help='LLM model to use (default: from config or active model)')
 @click.option('--force', '-f', is_flag=True, help='Bypass safety check for modifying commands (use with caution)')
 @click.option('--refine', '-r', is_flag=True, help='Enter refinement mode to improve the command')
 @click.option('--alternatives', '-a', is_flag=True, help='Show alternative command options')
 @click.option('--edit', is_flag=True, help='Edit command in your default editor before execution')
 @click.pass_context
 def cli(ctx, execute, copy, model, force, refine, alternatives, edit):
-    """Convert natural language to shell commands using OpenAI."""
+    """Convert natural language to shell commands using LLM providers."""
     # If a subcommand was invoked, let it handle it
     if ctx.invoked_subcommand is not None:
         return
@@ -118,6 +118,350 @@ def cli(ctx, execute, copy, model, force, refine, alternatives, edit):
 def init_config_cmd():
     """Create a default config file template."""
     config_manager.create_default()
+
+
+# Config subcommand group
+@cli.group(name="config", help="Manage configuration settings")
+def config_group():
+    """Manage configuration settings."""
+    pass
+
+
+# Providers subcommand group
+@config_group.group(name="providers", help="Manage LLM provider configurations")
+def providers_group():
+    """Manage LLM provider configurations."""
+    pass
+
+
+@providers_group.command(name="set")
+def providers_set():
+    """Interactively configure a provider and model."""
+    from cli_nlp.provider_manager import (
+        get_available_providers,
+        get_provider_models,
+        search_providers,
+        search_models,
+        format_model_name,
+        ProviderDiscoveryError,
+    )
+    from getpass import getpass
+    
+    try:
+        from prompt_toolkit import PromptSession
+        from prompt_toolkit.completion import FuzzyCompleter, WordCompleter
+    except ImportError:
+        console.print("[red]Error: prompt_toolkit not available.[/red]")
+        console.print("[yellow]Please install it with: poetry install[/yellow]")
+        sys.exit(1)
+    
+    # Get available providers
+    try:
+        providers = get_available_providers()
+    except ProviderDiscoveryError as e:
+        console.print(f"[red]Error: {e}[/red]")
+        console.print("[yellow]Please ensure LiteLLM is properly installed: poetry install[/yellow]")
+        sys.exit(1)
+    
+    if not providers:
+        console.print("[red]Error: No providers available.[/red]")
+        sys.exit(1)
+    
+    # Interactive provider selection with search/filter
+    console.print("[bold cyan]Select a provider:[/bold cyan]")
+    console.print("[dim]Type to search/filter providers. Press Tab for completion.[/dim]\n")
+    
+    provider_completer = FuzzyCompleter(WordCompleter(providers, ignore_case=True))
+    provider_session = PromptSession(
+        completer=provider_completer,
+        complete_while_typing=True,
+    )
+    
+    provider = None
+    while not provider:
+        try:
+            provider_input = provider_session.prompt("Provider: ").strip()
+            if not provider_input:
+                console.print("[yellow]Provider name cannot be empty.[/yellow]")
+                continue
+            
+            # Search for matching providers
+            matches = search_providers(provider_input)
+            if not matches:
+                console.print(f"[yellow]No provider found matching '{provider_input}'.[/yellow]")
+                console.print(f"[dim]Available providers: {', '.join(providers)}[/dim]")
+                continue
+            
+            if len(matches) == 1:
+                provider = matches[0]
+                console.print(f"[green]Selected: {provider}[/green]\n")
+            else:
+                # Multiple matches - show them
+                from rich.table import Table
+                table = Table(title="Matching Providers")
+                table.add_column("#", style="cyan", width=3)
+                table.add_column("Provider", style="green")
+                
+                for idx, match in enumerate(matches, 1):
+                    table.add_row(str(idx), match)
+                
+                console.print(table)
+                choice = click.prompt(f"\nSelect provider (1-{len(matches)})", type=int)
+                if 1 <= choice <= len(matches):
+                    provider = matches[choice - 1]
+                    console.print(f"[green]Selected: {provider}[/green]\n")
+                else:
+                    console.print("[yellow]Invalid selection.[/yellow]")
+        except (EOFError, KeyboardInterrupt):
+            console.print("\n[yellow]Cancelled.[/yellow]")
+            sys.exit(0)
+    
+    # Get models for selected provider
+    try:
+        models = get_provider_models(provider)
+    except ProviderDiscoveryError as e:
+        console.print(f"[red]Error: {e}[/red]")
+        console.print("[yellow]Please ensure LiteLLM is properly installed: poetry install[/yellow]")
+        sys.exit(1)
+    
+    if not models:
+        console.print(f"[yellow]No models found for provider '{provider}'.[/yellow]")
+        model = click.prompt("Enter model name manually")
+    else:
+        # Interactive model selection with search/filter
+        console.print(f"[bold cyan]Select a model for {provider}:[/bold cyan]")
+        console.print("[dim]Type to search/filter models. Press Tab for completion.[/dim]\n")
+        
+        model_completer = FuzzyCompleter(WordCompleter(models, ignore_case=True))
+        model_session = PromptSession(
+            completer=model_completer,
+            complete_while_typing=True,
+        )
+        
+        model = None
+        while not model:
+            try:
+                model_input = model_session.prompt("Model: ").strip()
+                if not model_input:
+                    console.print("[yellow]Model name cannot be empty.[/yellow]")
+                    continue
+                
+                # Search for matching models
+                matches = search_models(provider, model_input)
+                if not matches:
+                    console.print(f"[yellow]No model found matching '{model_input}'.[/yellow]")
+                    console.print(f"[dim]Available models: {', '.join(models)}[/dim]")
+                    continue
+                
+                if len(matches) == 1:
+                    model = matches[0]
+                    console.print(f"[green]Selected: {model}[/green]\n")
+                else:
+                    # Multiple matches - show them
+                    from rich.table import Table
+                    table = Table(title="Matching Models")
+                    table.add_column("#", style="cyan", width=3)
+                    table.add_column("Model", style="green")
+                    
+                    for idx, match in enumerate(matches, 1):
+                        table.add_row(str(idx), match)
+                    
+                    console.print(table)
+                    choice = click.prompt(f"\nSelect model (1-{len(matches)})", type=int)
+                    if 1 <= choice <= len(matches):
+                        model = matches[choice - 1]
+                        console.print(f"[green]Selected: {model}[/green]\n")
+                    else:
+                        console.print("[yellow]Invalid selection.[/yellow]")
+            except (EOFError, KeyboardInterrupt):
+                console.print("\n[yellow]Cancelled.[/yellow]")
+                sys.exit(0)
+    
+    # Format model name for LiteLLM
+    formatted_model = format_model_name(provider, model)
+    
+    # Get API key
+    console.print(f"[bold cyan]Enter API key for {provider}:[/bold cyan]")
+    console.print("[dim]The key will be stored securely in your config file.[/dim]\n")
+    api_key = getpass("API Key: ").strip()
+    
+    if not api_key:
+        console.print("[red]Error: API key cannot be empty.[/red]")
+        sys.exit(1)
+    
+    # Save provider configuration
+    if config_manager.add_provider(provider, api_key, models=[formatted_model]):
+        console.print(f"[green]Provider '{provider}' configured successfully.[/green]")
+        
+        # Ask if user wants to set as active
+        set_active = click.confirm(f"\nSet '{provider}' as active provider?", default=True)
+        if set_active:
+            config_manager.set_active_provider(provider)
+            # Update active model
+            config = config_manager.load()
+            config["active_model"] = formatted_model
+            config_manager.save(config)
+            console.print(f"[green]Active provider set to '{provider}' with model '{formatted_model}'.[/green]")
+    else:
+        console.print(f"[red]Error: Failed to save provider configuration.[/red]")
+        sys.exit(1)
+
+
+@providers_group.command(name="list")
+def providers_list():
+    """List all configured providers."""
+    config = config_manager.load()
+    providers = config.get("providers", {})
+    active_provider = config.get("active_provider")
+    
+    if not providers:
+        console.print("[yellow]No providers configured.[/yellow]")
+        console.print("[dim]Run 'qtc config providers set' to configure a provider.[/dim]")
+        return
+    
+    from rich.table import Table
+    from rich.text import Text
+    
+    table = Table(title="Configured Providers")
+    table.add_column("Provider", style="cyan", width=20)
+    table.add_column("Models", style="green", width=40)
+    table.add_column("Status", style="yellow", width=10)
+    
+    for provider_name, provider_config in providers.items():
+        models = provider_config.get("models", [])
+        models_str = ", ".join(models[:3])
+        if len(models) > 3:
+            models_str += f" (+{len(models) - 3} more)"
+        
+        status = "Active" if provider_name == active_provider else "Inactive"
+        status_style = "bold green" if provider_name == active_provider else "dim"
+        
+        table.add_row(
+            provider_name,
+            models_str or "None",
+            Text(status, style=status_style),
+        )
+    
+    console.print(table)
+
+
+@providers_group.command(name="show")
+def providers_show():
+    """Show active provider and model."""
+    active_provider = config_manager.get_active_provider()
+    active_model = config_manager.get_active_model()
+    
+    if not active_provider:
+        console.print("[yellow]No active provider configured.[/yellow]")
+        console.print("[dim]Run 'qtc config providers set' to configure a provider.[/dim]")
+        return
+    
+    from rich.panel import Panel
+    
+    provider_config = config_manager.get_provider_config(active_provider)
+    models = provider_config.get("models", []) if provider_config else []
+    
+    console.print(Panel(
+        f"[bold]Provider:[/bold] {active_provider}\n"
+        f"[bold]Model:[/bold] {active_model}\n"
+        f"[bold]Available Models:[/bold] {', '.join(models) if models else 'None'}",
+        title="Active Provider Configuration",
+        border_style="green"
+    ))
+
+
+@providers_group.command(name="switch")
+@click.argument('provider_name', required=True)
+def providers_switch(provider_name):
+    """Switch active provider."""
+    config = config_manager.load()
+    providers = config.get("providers", {})
+    
+    if provider_name not in providers:
+        console.print(f"[red]Error: Provider '{provider_name}' is not configured.[/red]")
+        console.print(f"[dim]Available providers: {', '.join(providers.keys())}[/dim]")
+        sys.exit(1)
+    
+    if config_manager.set_active_provider(provider_name):
+        # Set first model as active model if available
+        provider_config = providers[provider_name]
+        models = provider_config.get("models", [])
+        if models:
+            config = config_manager.load()
+            config["active_model"] = models[0]
+            config_manager.save(config)
+            console.print(f"[green]Switched to provider '{provider_name}' with model '{models[0]}'.[/green]")
+        else:
+            console.print(f"[green]Switched to provider '{provider_name}'.[/green]")
+            console.print("[yellow]Warning: No models configured for this provider.[/yellow]")
+    else:
+        console.print(f"[red]Error: Failed to switch provider.[/red]")
+        sys.exit(1)
+
+
+@providers_group.command(name="remove")
+@click.argument('provider_name', required=True)
+@click.option('--yes', '-y', is_flag=True, help='Skip confirmation')
+def providers_remove(provider_name, yes):
+    """Remove a provider configuration."""
+    config = config_manager.load()
+    providers = config.get("providers", {})
+    
+    if provider_name not in providers:
+        console.print(f"[red]Error: Provider '{provider_name}' is not configured.[/red]")
+        sys.exit(1)
+    
+    active_provider = config.get("active_provider")
+    if provider_name == active_provider:
+        console.print(f"[yellow]Warning: '{provider_name}' is currently the active provider.[/yellow]")
+        if not yes:
+            response = click.prompt("Are you sure you want to remove it? (yes/no)", default="no")
+            if response.lower() not in ["yes", "y"]:
+                console.print("[yellow]Cancelled.[/yellow]")
+                return
+    
+    if not yes:
+        console.print(f"[yellow]This will remove provider '{provider_name}' configuration.[/yellow]")
+        response = click.prompt("Are you sure? (yes/no)", default="no")
+        if response.lower() not in ["yes", "y"]:
+            console.print("[yellow]Cancelled.[/yellow]")
+            return
+    
+    if config_manager.remove_provider(provider_name):
+        console.print(f"[green]Provider '{provider_name}' removed.[/green]")
+    else:
+        console.print(f"[red]Error: Failed to remove provider.[/red]")
+        sys.exit(1)
+
+
+@providers_group.command(name="refresh")
+def providers_refresh():
+    """Refresh the provider/model cache from LiteLLM."""
+    from cli_nlp.provider_manager import refresh_provider_cache, ProviderDiscoveryError
+    
+    console.print("[bold cyan]Refreshing provider/model cache...[/bold cyan]")
+    
+    try:
+        provider_models = refresh_provider_cache()
+        
+        from rich.table import Table
+        
+        table = Table(title="Available Providers (Refreshed)")
+        table.add_column("Provider", style="cyan", width=20)
+        table.add_column("Models Count", style="green", width=15)
+        
+        for provider, models in sorted(provider_models.items()):
+            table.add_row(provider, str(len(models)))
+        
+        console.print(table)
+        console.print(f"[green]Cache refreshed successfully. Found {len(provider_models)} providers.[/green]")
+    except ProviderDiscoveryError as e:
+        console.print(f"[red]Error: {e}[/red]")
+        console.print("[yellow]Please ensure LiteLLM is properly installed: poetry install[/yellow]")
+        sys.exit(1)
+    except Exception as e:
+        console.print(f"[red]Error refreshing cache: {e}[/red]")
+        sys.exit(1)
 
 
 # History subcommand group
@@ -331,7 +675,7 @@ def cache_clear(yes):
 
 @cli.command(name="batch")
 @click.argument('file', required=True)
-@click.option('--model', '-m', help='OpenAI model to use')
+@click.option('--model', '-m', help='LLM model to use')
 def batch_cmd(file, model):
     """Process multiple queries from a file."""
     command_runner.run_batch(file, model=model)

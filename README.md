@@ -77,28 +77,38 @@ cli-nlp/
 └── README.md                # This file
 ```
 
-### Set up OpenAI API key
+### Set up LLM Provider
 
-**Option A: Using config file (recommended):**
+**Option A: Interactive configuration (recommended):**
+```bash
+# Configure a provider interactively
+qtc config providers set
+# or: poetry run qtc config providers set
+
+# This will guide you through:
+# 1. Selecting a provider (OpenAI, Anthropic, Google, etc.)
+# 2. Choosing a model
+# 3. Entering your API key securely
+```
+
+**Option B: Using config file:**
 ```bash
 # Create config file template
 qtc init-config
 # or: poetry run qtc init-config
 
-# Edit the config file and add your API key
+# Edit the config file and add your provider configuration
 # Location: ~/.config/cli-nlp/config.json
 nano ~/.config/cli-nlp/config.json
 ```
 
-**Option B: Using environment variable:**
+**Option C: Using environment variables:**
 ```bash
+# Set provider-specific environment variable
 export OPENAI_API_KEY='your-api-key-here'
-```
-
-Or add it to your `~/.zshrc` or `~/.bashrc`:
-```bash
-echo 'export OPENAI_API_KEY="your-api-key-here"' >> ~/.zshrc
-source ~/.zshrc
+# or
+export ANTHROPIC_API_KEY='your-api-key-here'
+# etc.
 ```
 
 Note: The config file takes precedence over environment variables.
@@ -163,6 +173,8 @@ qtc "find files larger than 100MB" --copy
 
 ```bash
 qtc "complex query" --model gpt-4o
+# or
+qtc "complex query" --model claude-3-opus-20240229
 ```
 
 ### Combine Options
@@ -201,8 +213,18 @@ The tool uses a JSON config file located at `~/.config/cli-nlp/config.json` (or 
 
 ```json
 {
-  "openai_api_key": "your-api-key-here",
-  "default_model": "gpt-4o-mini",
+  "providers": {
+    "openai": {
+      "api_key": "sk-your-api-key-here",
+      "models": ["gpt-4o-mini", "gpt-4o"]
+    },
+    "anthropic": {
+      "api_key": "sk-ant-your-api-key-here",
+      "models": ["claude-3-opus-20240229", "claude-3-sonnet-20240229"]
+    }
+  },
+  "active_provider": "openai",
+  "active_model": "gpt-4o-mini",
   "temperature": 0.3,
   "max_tokens": 200
 }
@@ -215,22 +237,66 @@ qtc init-config
 # or: poetry run qtc init-config
 ```
 
-This creates a template config file that you can edit. The config file has restrictive permissions (600) to protect your API key.
+This creates a template config file. Then configure a provider:
+
+```bash
+qtc config providers set
+```
+
+The config file has restrictive permissions (600) to protect your API keys.
+
+### Provider Management
+
+Configure and manage multiple LLM providers:
+
+```bash
+# Configure a new provider interactively
+qtc config providers set
+
+# List all configured providers
+qtc config providers list
+
+# Show active provider
+qtc config providers show
+
+# Switch active provider
+qtc config providers switch openai
+
+# Remove a provider
+qtc config providers remove anthropic
+```
 
 ### Config Options
 
-- `openai_api_key`: Your OpenAI API key (required)
-- `default_model`: Default model to use (default: "gpt-4o-mini")
+- `providers`: Dictionary of provider configurations (each with `api_key` and `models`)
+- `active_provider`: Currently active provider name
+- `active_model`: Currently active model string
 - `temperature`: Temperature for command generation (default: 0.3)
 - `max_tokens`: Maximum tokens for response (default: 200)
+
+### Supported Providers
+
+The tool supports 100+ LLM providers through LiteLLM, including:
+- OpenAI (GPT-4, GPT-3.5, etc.)
+- Anthropic (Claude 3)
+- Google (Gemini)
+- Cohere
+- Mistral
+- Azure OpenAI
+- AWS Bedrock
+- Ollama (local models)
+- And many more...
+
+Run `qtc config providers set` to see all available providers.
 
 ## Options
 
 - `--execute, -e`: Execute the generated command automatically
 - `--force, -f`: Bypass safety check for modifying commands (use with caution)
-- `--model MODEL, -m MODEL`: Specify OpenAI model (overrides config default)
+- `--model MODEL, -m MODEL`: Specify LLM model (overrides config default)
 - `--copy, -c`: Copy command to clipboard (requires xclip or xsel)
 - `init-config`: Create a default config file template (subcommand)
+- `config providers`: Manage LLM provider configurations (subcommand)
 - `--help, -h`: Show help message
 
 ## Safety Features
@@ -264,30 +330,33 @@ qtc "delete all .pyc files" --execute --force
 
 - Python 3.12+
 - Poetry (required for installation)
-- OpenAI API key
+- LLM provider API key (OpenAI, Anthropic, Google, etc.)
 - (Optional) xclip or xsel for clipboard functionality
 
 ## Development
 
 The codebase is organized into modular classes:
 
-- **ConfigManager** (`config_manager.py`): Handles configuration file operations (loading, saving, API key management)
-- **CommandRunner** (`command_runner.py`): Handles command generation using OpenAI with safety analysis and command execution
+- **ConfigManager** (`config_manager.py`): Handles configuration file operations (loading, saving, multi-provider API key management)
+- **CommandRunner** (`command_runner.py`): Handles command generation using LiteLLM with safety analysis and command execution
+- **ProviderManager** (`provider_manager.py`): Provider and model discovery utilities
 - **Models** (`models.py`): Pydantic models for structured LLM responses (CommandResponse with safety information)
-- **CLI** (`cli.py`): Main interface using Typer for argument parsing and command routing
+- **CLI** (`cli.py`): Main interface using Click for argument parsing and command routing
 - **Utils** (`utils.py`): Utility functions (help text, clipboard operations)
 
 This structure makes the code maintainable and easy to extend.
 
 ## Notes
 
-- The tool uses GPT-4o-mini by default for cost efficiency
+- The tool uses LiteLLM to support 100+ LLM providers
+- Default model is gpt-4o-mini (cost-efficient) but can be changed via config
 - Commands are generated based on standard Unix/Linux commands
 - **Safety First**: The tool automatically analyzes commands and warns you about modifying operations
 - Always review generated commands before executing, especially for destructive operations
 - Use `--force` flag only when you're certain the command is safe to execute
 - API key priority: config file > environment variable
 - The config file is automatically created with secure permissions (600)
+- Old config files are automatically migrated to the new multi-provider format
 
 ## License
 

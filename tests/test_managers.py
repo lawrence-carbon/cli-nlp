@@ -32,8 +32,9 @@ class TestConfigManager:
         manager.config_path = temp_config_file
         
         config = manager.load()
-        assert config["openai_api_key"] == "test-api-key-12345"
-        assert config["default_model"] == "gpt-4o-mini"
+        assert config["providers"]["openai"]["api_key"] == "test-api-key-12345"
+        assert config["active_provider"] == "openai"
+        assert config["active_model"] == "gpt-4o-mini"
     
     def test_load_nonexistent_config(self, temp_dir, monkeypatch):
         """Test loading non-existent config file."""
@@ -42,7 +43,10 @@ class TestConfigManager:
         monkeypatch.setattr(manager, "config_path", config_file)
         
         config = manager.load()
-        assert config == {}
+        # Should return default config structure
+        assert "providers" in config
+        assert config["providers"] == {}
+        assert config["active_provider"] is None
     
     def test_create_default(self, temp_dir, monkeypatch):
         """Test creating default config file."""
@@ -55,8 +59,10 @@ class TestConfigManager:
         assert config_file.exists()
         
         config = manager.load()
-        assert "openai_api_key" in config
-        assert config["default_model"] == "gpt-4o-mini"
+        assert "providers" in config
+        assert config["providers"] == {}
+        assert config["active_provider"] is None
+        assert config["active_model"] == "gpt-4o-mini"
     
     def test_create_default_existing(self, temp_config_file):
         """Test creating default config when file already exists."""
@@ -77,7 +83,11 @@ class TestConfigManager:
     def test_get_api_key_from_env(self, temp_dir, monkeypatch):
         """Test getting API key from environment variable."""
         config_file = temp_dir / "config.json"
-        config_file.write_text(json.dumps({}))
+        config_file.write_text(json.dumps({
+            "providers": {},
+            "active_provider": "openai",
+            "active_model": "gpt-4o-mini"
+        }))
         
         manager = ConfigManager()
         monkeypatch.setattr(manager, "config_path", config_file)
@@ -86,18 +96,106 @@ class TestConfigManager:
         api_key = manager.get_api_key()
         assert api_key == "env-api-key"
     
+    def test_migrate_old_config(self, temp_dir, monkeypatch):
+        """Test migration of old config format to new format."""
+        config_file = temp_dir / "old_config.json"
+        # Write old format
+        old_config = {
+            "openai_api_key": "old-key-123",
+            "default_model": "gpt-4",
+            "temperature": 0.5
+        }
+        config_file.write_text(json.dumps(old_config))
+        
+        manager = ConfigManager()
+        monkeypatch.setattr(manager, "config_path", config_file)
+        
+        config = manager.load()
+        # Should be migrated
+        assert "providers" in config
+        assert config["providers"]["openai"]["api_key"] == "old-key-123"
+        assert config["active_provider"] == "openai"
+        assert config["active_model"] == "gpt-4"
+        assert config["temperature"] == 0.5
+    
+    def test_get_active_provider(self, temp_config_file):
+        """Test getting active provider."""
+        manager = ConfigManager()
+        manager.config_path = temp_config_file
+        
+        provider = manager.get_active_provider()
+        assert provider == "openai"
+    
+    def test_get_active_model(self, temp_config_file):
+        """Test getting active model."""
+        manager = ConfigManager()
+        manager.config_path = temp_config_file
+        
+        model = manager.get_active_model()
+        assert model == "gpt-4o-mini"
+    
+    def test_add_provider(self, temp_dir, monkeypatch):
+        """Test adding a provider."""
+        config_file = temp_dir / "config.json"
+        config_file.write_text(json.dumps({
+            "providers": {},
+            "active_provider": None,
+            "active_model": "gpt-4o-mini"
+        }))
+        
+        manager = ConfigManager()
+        monkeypatch.setattr(manager, "config_path", config_file)
+        
+        result = manager.add_provider("anthropic", "sk-ant-test", ["claude-3-opus"])
+        assert result is True
+        
+        config = manager.load()
+        assert "anthropic" in config["providers"]
+        assert config["providers"]["anthropic"]["api_key"] == "sk-ant-test"
+    
+    def test_set_active_provider(self, temp_config_file):
+        """Test setting active provider."""
+        manager = ConfigManager()
+        manager.config_path = temp_config_file
+        
+        # Add another provider first
+        manager.add_provider("anthropic", "sk-ant-test", ["claude-3-opus"])
+        
+        result = manager.set_active_provider("anthropic")
+        assert result is True
+        
+        assert manager.get_active_provider() == "anthropic"
+    
+    def test_remove_provider(self, temp_config_file):
+        """Test removing a provider."""
+        manager = ConfigManager()
+        manager.config_path = temp_config_file
+        
+        # Add a provider
+        manager.add_provider("anthropic", "sk-ant-test", ["claude-3-opus"])
+        
+        result = manager.remove_provider("anthropic")
+        assert result is True
+        
+        config = manager.load()
+        assert "anthropic" not in config["providers"]
+    
     def test_get_config_value(self, temp_config_file):
         """Test getting config value."""
         manager = ConfigManager()
         manager.config_path = temp_config_file
         
-        model = manager.get("default_model")
+        model = manager.get("active_model")
         assert model == "gpt-4o-mini"
     
     def test_get_config_value_default(self, temp_dir, monkeypatch):
         """Test getting config value with default."""
         config_file = temp_dir / "config.json"
-        config_file.write_text(json.dumps({}))
+        config_file.write_text(json.dumps({
+            "providers": {},
+            "active_provider": None,
+            "active_model": "gpt-4o-mini"
+        }))
         
         manager = ConfigManager()
         monkeypatch.setattr(manager, "config_path", config_file)

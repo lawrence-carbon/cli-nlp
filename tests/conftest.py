@@ -23,11 +23,17 @@ def temp_dir(tmp_path):
 
 @pytest.fixture
 def temp_config_file(temp_dir):
-    """Create a temporary config file."""
+    """Create a temporary config file with new multi-provider structure."""
     config_file = temp_dir / "config.json"
     config_data = {
-        "openai_api_key": "test-api-key-12345",
-        "default_model": "gpt-4o-mini",
+        "providers": {
+            "openai": {
+                "api_key": "test-api-key-12345",
+                "models": ["gpt-4o-mini", "gpt-4o"]
+            }
+        },
+        "active_provider": "openai",
+        "active_model": "gpt-4o-mini",
         "temperature": 0.3,
         "max_tokens": 200,
         "cache_ttl_seconds": 86400,

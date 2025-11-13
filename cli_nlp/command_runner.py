@@ -1,6 +1,7 @@
 """Command generation and execution for CLI-NLP."""
 
 import json
+import os
 import subprocess
 import sys
 from typing import List, Optional
@@ -70,36 +71,46 @@ Examples:
             ttl_seconds=config_manager.get("cache_ttl_seconds", 86400)
         )
         self.context_manager = context_manager or ContextManager()
-        self._client = None
     
-    @property
-    def client(self):
-        """Lazy-load OpenAI client."""
-        if self._client is None:
-            self._client = self._get_openai_client()
-        return self._client
-    
-    def _get_openai_client(self):
-        """Initialize OpenAI client with API key from config or environment."""
+    def _setup_litellm_api_key(self):
+        """Setup LiteLLM API key from config."""
         try:
-            from openai import OpenAI
+            import litellm
         except ImportError:
-            console.print("[red]Error: OpenAI package not installed.[/red]")
+            console.print("[red]Error: LiteLLM package not installed.[/red]")
             console.print("[yellow]Please install it with: poetry install[/yellow]")
             sys.exit(1)
         
         api_key = self.config_manager.get_api_key()
+        active_provider = self.config_manager.get_active_provider()
         
         if not api_key:
             config_path = self.config_manager.config_path
-            console.print("[red]Error: OpenAI API key not found.[/red]")
+            console.print("[red]Error: API key not found for active provider.[/red]")
             console.print("Please either:")
-            console.print(f"  1. Add 'openai_api_key' to config file: {config_path}")
-            console.print("  2. Set OPENAI_API_KEY environment variable")
-            console.print("  3. Run: qtc init-config")
+            console.print(f"  1. Run: qtc config providers set")
+            console.print(f"  2. Set provider-specific environment variable")
+            console.print(f"  3. Add provider config to: {config_path}")
             sys.exit(1)
         
-        return OpenAI(api_key=api_key)
+        # Set API key in environment for LiteLLM
+        # LiteLLM reads from environment variables
+        if active_provider:
+            env_var_map = {
+                "openai": "OPENAI_API_KEY",
+                "anthropic": "ANTHROPIC_API_KEY",
+                "cohere": "COHERE_API_KEY",
+                "google": "GOOGLE_API_KEY",
+                "mistral": "MISTRAL_API_KEY",
+                "azure": "AZURE_API_KEY",
+            }
+            env_var = env_var_map.get(active_provider.lower())
+            if env_var and not os.getenv(env_var):
+                os.environ[env_var] = api_key
+        else:
+            # Fallback to OPENAI_API_KEY
+            if not os.getenv("OPENAI_API_KEY"):
+                os.environ["OPENAI_API_KEY"] = api_key
     
     def generate_command(
         self,
@@ -122,8 +133,11 @@ Examples:
         Returns:
             CommandResponse object containing command and safety information
         """
+        # Setup LiteLLM API key
+        self._setup_litellm_api_key()
+        
         # Use provided values or fall back to config or defaults
-        model = model or self.config_manager.get("default_model", "gpt-4o-mini")
+        model = model or self.config_manager.get_active_model()
         temperature = temperature if temperature is not None else self.config_manager.get("temperature", 0.3)
         max_tokens = max_tokens if max_tokens is not None else self.config_manager.get("max_tokens", 200)
         
@@ -140,21 +154,40 @@ Examples:
         context_prompt = f"{context_str}\n\nUser request: {query}" if context_str else query
         
         try:
+            import litellm
+        except ImportError:
+            console.print("[red]Error: LiteLLM package not installed.[/red]")
+            console.print("[yellow]Please install it with: poetry install[/yellow]")
+            sys.exit(1)
+        
+        try:
             with console.status("[bold green]Generating command..."):
-                # Try structured output with Pydantic (OpenAI SDK 1.0+)
+                # Try Pydantic structured output first (for models that support it)
                 try:
-                    response = self.client.beta.chat.completions.parse(
+                    # Get JSON schema from Pydantic model
+                    json_schema = CommandResponse.model_json_schema()
+                    
+                    # Try using JSON schema structured output
+                    response = litellm.completion(
                         model=model,
                         messages=[
                             {"role": "system", "content": self.SYSTEM_PROMPT},
                             {"role": "user", "content": context_prompt}
                         ],
-                        response_format=CommandResponse,
+                        response_format={
+                            "type": "json_schema",
+                            "json_schema": json_schema,
+                            "strict": True
+                        },
                         temperature=temperature,
                         max_tokens=max_tokens
                     )
                     
-                    command_response = response.choices[0].message.parsed
+                    content = response.choices[0].message.content.strip()
+                    data = json.loads(content)
+                    
+                    # Create CommandResponse from JSON
+                    command_response = CommandResponse(**data)
                     
                     # Ensure safety_level is set based on is_safe
                     if command_response.safety_level is None:
@@ -165,41 +198,82 @@ Examples:
                         self.cache_manager.set(query, command_response, model=model)
                     
                     return command_response
-                except (AttributeError, TypeError):
-                    # Fallback: Use JSON mode for models that don't support structured output
-                    response = self.client.chat.completions.create(
-                        model=model,
-                        messages=[
-                            {
-                                "role": "system",
-                                "content": self.SYSTEM_PROMPT + "\n\nYou must respond with a valid JSON object matching this schema: {\"command\": \"string\", \"is_safe\": boolean, \"safety_level\": \"safe\" or \"modifying\", \"explanation\": \"string (optional)\"}"
-                            },
-                            {"role": "user", "content": context_prompt}
-                        ],
-                        response_format={"type": "json_object"},
-                        temperature=temperature,
-                        max_tokens=max_tokens
-                    )
-                    
-                    content = response.choices[0].message.content.strip()
-                    data = json.loads(content)
-                    
-                    # Create CommandResponse from JSON
-                    command_response = CommandResponse(
-                        command=data.get("command", ""),
-                        is_safe=data.get("is_safe", False),
-                        safety_level=SafetyLevel(data.get("safety_level", "modifying")),
-                        explanation=data.get("explanation")
-                    )
-                    
-                    # Cache the response
-                    if use_cache:
-                        self.cache_manager.set(query, command_response, model=model)
-                    
-                    return command_response
+                except Exception as e:
+                    # Fallback: Use JSON mode (requires "json" in prompt)
+                    try:
+                        system_prompt_with_json = self.SYSTEM_PROMPT + "\n\nYou must respond with a valid JSON object matching this schema: {\"command\": \"string\", \"is_safe\": boolean, \"safety_level\": \"safe\" or \"modifying\", \"explanation\": \"string (optional)\"}"
+                        
+                        response = litellm.completion(
+                            model=model,
+                            messages=[
+                                {"role": "system", "content": system_prompt_with_json},
+                                {"role": "user", "content": context_prompt}
+                            ],
+                            response_format={"type": "json_object"},
+                            temperature=temperature,
+                            max_tokens=max_tokens
+                        )
+                        
+                        content = response.choices[0].message.content.strip()
+                        data = json.loads(content)
+                        
+                        # Create CommandResponse from JSON
+                        command_response = CommandResponse(**data)
+                        
+                        # Ensure safety_level is set based on is_safe
+                        if command_response.safety_level is None:
+                            command_response.safety_level = SafetyLevel.SAFE if command_response.is_safe else SafetyLevel.MODIFYING
+                        
+                        # Cache the response
+                        if use_cache:
+                            self.cache_manager.set(query, command_response, model=model)
+                        
+                        return command_response
+                    except Exception as e2:
+                        # Final fallback: No structured output
+                        response = litellm.completion(
+                            model=model,
+                            messages=[
+                                {
+                                    "role": "system",
+                                    "content": self.SYSTEM_PROMPT + "\n\nYou must respond with a valid JSON object matching this schema: {\"command\": \"string\", \"is_safe\": boolean, \"safety_level\": \"safe\" or \"modifying\", \"explanation\": \"string (optional)\"}"
+                                },
+                                {"role": "user", "content": context_prompt}
+                            ],
+                            temperature=temperature,
+                            max_tokens=max_tokens
+                        )
+                        
+                        content = response.choices[0].message.content.strip()
+                        # Try to extract JSON from response if it's wrapped
+                        if "```json" in content:
+                            import re
+                            json_match = re.search(r"```json\n(.*?)\n```", content, re.DOTALL)
+                            if json_match:
+                                content = json_match.group(1)
+                        elif "```" in content:
+                            import re
+                            json_match = re.search(r"```\n(.*?)\n```", content, re.DOTALL)
+                            if json_match:
+                                content = json_match.group(1)
+                        
+                        data = json.loads(content)
+                        
+                        # Create CommandResponse from JSON
+                        command_response = CommandResponse(**data)
+                        
+                        # Cache the response
+                        if use_cache:
+                            self.cache_manager.set(query, command_response, model=model)
+                        
+                        return command_response
         
         except Exception as e:
             console.print(f"[red]Error generating command: {e}[/red]")
+            active_provider = self.config_manager.get_active_provider()
+            if active_provider:
+                console.print(f"[yellow]Active provider: {active_provider}, Model: {model}[/yellow]")
+            console.print("[yellow]Please check your API key and provider configuration.[/yellow]")
             sys.exit(1)
     
     def refine_command(
@@ -257,17 +331,20 @@ Please provide an improved version of the command based on the refinement reques
 Provide {count} distinct approaches, each with different flags, tools, or methods. Return them as a JSON array where each element has: command, is_safe, safety_level, and explanation."""
         
         try:
-            model = model or self.config_manager.get("default_model", "gpt-4o-mini")
+            self._setup_litellm_api_key()
+            import litellm
+            
+            model = model or self.config_manager.get_active_model()
             temperature = self.config_manager.get("temperature", 0.3)
             max_tokens = self.config_manager.get("max_tokens", 500)  # More tokens for multiple commands
             
             with console.status("[bold green]Generating alternatives..."):
-                response = self.client.chat.completions.create(
+                response = litellm.completion(
                     model=model,
                     messages=[
                         {
                             "role": "system",
-                            "content": self.SYSTEM_PROMPT + "\n\nYou must respond with a valid JSON array of command objects, each with: command, is_safe, safety_level, and explanation."
+                            "content": self.SYSTEM_PROMPT + "\n\nYou must respond with a valid JSON object containing an 'alternatives' array of command objects, each with: command, is_safe, safety_level, and explanation."
                         },
                         {"role": "user", "content": alternatives_prompt}
                     ],
@@ -349,12 +426,15 @@ Return a JSON object with:
 If it's a simple single command, return it as a single-item array."""
         
         try:
-            model = model or self.config_manager.get("default_model", "gpt-4o-mini")
+            self._setup_litellm_api_key()
+            import litellm
+            
+            model = model or self.config_manager.get_active_model()
             temperature = self.config_manager.get("temperature", 0.3)
             max_tokens = self.config_manager.get("max_tokens", 500)
             
             with console.status("[bold green]Generating commands..."):
-                response = self.client.chat.completions.create(
+                response = litellm.completion(
                     model=model,
                     messages=[
                         {
@@ -710,7 +790,7 @@ If it's a simple single command, return it as a single-item array."""
             try:
                 self.run(query, execute=False, model=model)
                 console.print()  # Blank line between queries
-            except Exception as e:
+            except (Exception, SystemExit) as e:
                 console.print(f"[red]Error processing query: {e}[/red]\n")
                 continue
 
