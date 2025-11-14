@@ -90,10 +90,14 @@ class TestProviderManager:
         assert format_model_name("anthropic", "claude-3-opus") == "claude-3-opus"
         # Azure, Bedrock, Ollama need prefix
         assert format_model_name("azure", "gpt-4o-mini") == "azure/gpt-4o-mini"
-        assert format_model_name("bedrock", "claude-3-opus") == "bedrock/claude-3-opus"
+        assert (
+            format_model_name("bedrock", "claude-3-opus") == "bedrock/claude-3-opus"
+        )
         assert format_model_name("ollama", "llama2") == "ollama/llama2"
         # Already formatted
-        assert format_model_name("azure", "azure/gpt-4o-mini") == "azure/gpt-4o-mini"
+        assert (
+            format_model_name("azure", "azure/gpt-4o-mini") == "azure/gpt-4o-mini"
+        )
 
     def test_get_model_provider(self, monkeypatch):
         """Test getting provider from model name."""
