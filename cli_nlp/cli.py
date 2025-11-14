@@ -18,7 +18,9 @@ from cli_nlp.utils import console
 # Initialize managers
 config_manager = ConfigManager()
 history_manager = HistoryManager()
-cache_manager = CacheManager(ttl_seconds=config_manager.get("cache_ttl_seconds", 86400))
+cache_manager = CacheManager(
+    ttl_seconds=config_manager.get("cache_ttl_seconds", 86400)
+)
 context_manager = ContextManager()
 template_manager = TemplateManager()
 command_runner = CommandRunner(
