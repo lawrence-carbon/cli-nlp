@@ -685,7 +685,9 @@ def history_list(limit):
         executed_style = (
             "green"
             if entry.executed and entry.return_code == 0
-            else "red" if entry.executed else "dim"
+            else "red"
+            if entry.executed
+            else "dim"
         )
 
         table.add_row(
