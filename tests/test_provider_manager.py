@@ -196,7 +196,6 @@ class TestProviderManager:
                 return_value={"openai": ["gpt-4o", "gpt-4o-mini"]},
             ),
         ):
-
             refresh_provider_cache()
 
             # Cache should be updated

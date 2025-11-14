@@ -848,7 +848,6 @@ class TestCommandRunner:
             patch("os.unlink"),
             patch("builtins.open", side_effect=open_side_effect),
         ):
-
             # Test edit mode
             runner.run("list files", edit=True)
 

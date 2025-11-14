@@ -197,7 +197,7 @@ class HistoryManager:
                         entry.is_safe,
                         entry.safety_level.value,
                         entry.executed,
-                        entry.return_code or "",
+                        entry.return_code if entry.return_code is not None else "",
                         entry.explanation or "",
                     ]
                 )
