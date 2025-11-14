@@ -9,7 +9,9 @@ alwaysApply: true
 ## Code Style and Conventions
 - **Follow existing patterns and conventions**:
   - Use Black for formatting (line length: 88, target: Python 3.12)
+  - Check and fix code before each commit with `poetry run ruff check .` and `poetry run ruff check --fix .` to auto-fix issues when possible
   - Use Ruff for linting (configured in `pyproject.toml`)
+  - Check and fix code formatting before each commit with `poetry run black .`
   - Add type hints where appropriate
   - Use Google-style docstrings for public functions/classes
   - Follow existing manager pattern (ConfigManager, CacheManager, HistoryManager, etc.)
