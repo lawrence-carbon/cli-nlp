@@ -15,6 +15,7 @@ from cli_nlp.context_manager import ContextManager
 from cli_nlp.exceptions import QTCError
 from cli_nlp.history_manager import HistoryManager
 from cli_nlp.logger import setup_logging
+from cli_nlp.metrics import MetricsCollector
 from cli_nlp.template_manager import TemplateManager
 from cli_nlp.utils import console
 
@@ -118,8 +119,38 @@ KNOWN_COMMANDS = ["history", "cache", "batch", "template", "config"]
     is_flag=True,
     help="Show version information",
 )
+@click.option(
+    "--dry-run",
+    is_flag=True,
+    help="Preview command without executing",
+)
+@click.option(
+    "--json",
+    "output_json",
+    is_flag=True,
+    help="Output in JSON format",
+)
+@click.option(
+    "--debug",
+    is_flag=True,
+    help="Enable debug mode (more verbose than --verbose)",
+)
 @click.pass_context
-def cli(ctx, execute, copy, force, refine, alternatives, edit, verbose, log_file, version):
+def cli(
+    ctx,
+    execute,
+    copy,
+    force,
+    refine,
+    alternatives,
+    edit,
+    verbose,
+    log_file,
+    version,
+    dry_run,
+    output_json,
+    debug,
+):
     """Convert natural language to shell commands using LLM providers."""
     # Show version and exit
     if version:
@@ -129,8 +160,8 @@ def cli(ctx, execute, copy, force, refine, alternatives, edit, verbose, log_file
         sys.exit(0)
 
     # Setup logging
-    log_level = "DEBUG" if verbose else "INFO"
-    setup_logging(level=log_level, log_file=log_file, verbose=verbose)
+    log_level = "DEBUG" if (verbose or debug) else "INFO"
+    setup_logging(level=log_level, log_file=log_file, verbose=verbose or debug)
 
     # If a subcommand was invoked, let it handle it
     if ctx.invoked_subcommand is not None:
@@ -153,12 +184,14 @@ def cli(ctx, execute, copy, force, refine, alternatives, edit, verbose, log_file
     try:
         command_runner.run(
             query_str,
-            execute=execute,
+            execute=execute and not dry_run,  # Don't execute if dry-run
             copy=copy,
             force=force,
             refine=refine,
             alternatives=alternatives,
             edit=edit,
+            dry_run=dry_run,
+            output_json=output_json,
         )
     except QTCError as e:
         console.print(f"[red]Error:[/red] {e.message}")
@@ -1005,6 +1038,142 @@ def template_delete(name, yes):
     else:
         console.print(f"[red]Error deleting template '{name}'.[/red]")
         sys.exit(1)
+
+
+# Metrics subcommand group
+@cli.group(name="metrics", help="View and manage metrics")
+def metrics_group():
+    """View and manage metrics."""
+    pass
+
+
+@metrics_group.command(name="show")
+@click.option("--json", "output_json", is_flag=True, help="Output in JSON format")
+def metrics_show(output_json):
+    """Show current metrics."""
+    collector = MetricsCollector()
+    stats = collector.get_stats()
+
+    if output_json:
+        import json
+
+        print(json.dumps(stats, indent=2))
+        return
+
+    from rich.table import Table
+
+    table = Table(title="QTC Metrics", show_header=True, header_style="bold cyan")
+    table.add_column("Metric", style="cyan", width=30)
+    table.add_column("Value", style="green", width=20)
+
+    table.add_row("Total Queries", str(stats["total_queries"]))
+    table.add_row("Cache Hits", str(stats["cache_hits"]))
+    table.add_row("Cache Misses", str(stats["cache_misses"]))
+    table.add_row(
+        "Cache Hit Rate",
+        f"{stats['cache_hit_rate']:.1%}" if stats["cache_hit_rate"] > 0 else "0%",
+    )
+    table.add_row("API Calls", str(stats["api_calls"]))
+    table.add_row(
+        "Avg Execution Time",
+        f"{stats['execution_time_avg']:.3f}s"
+        if stats["execution_time_avg"] > 0
+        else "N/A",
+    )
+    table.add_row("Errors", str(stats["errors"]))
+    table.add_row("Commands Executed", str(stats["commands_executed"]))
+    table.add_row("Commands Skipped", str(stats["commands_skipped"]))
+    if stats.get("last_updated"):
+        table.add_row("Last Updated", stats["last_updated"])
+
+    console.print(table)
+
+
+@metrics_group.command(name="reset")
+@click.option("--yes", "-y", is_flag=True, help="Skip confirmation")
+def metrics_reset(yes):
+    """Reset all metrics."""
+    if not yes:
+        console.print("[yellow]This will reset all metrics.[/yellow]")
+        response = click.prompt("Are you sure? (yes/no)", default="no")
+        if response.lower() not in ["yes", "y"]:
+            console.print("[yellow]Cancelled.[/yellow]")
+            return
+
+    collector = MetricsCollector()
+    collector.reset()
+    console.print("[green]Metrics reset successfully.[/green]")
+
+
+# Stats subcommand
+@cli.command(name="stats")
+@click.option("--json", "output_json", is_flag=True, help="Output in JSON format")
+def stats(output_json):
+    """Show performance statistics and provider comparison."""
+    collector = MetricsCollector()
+    stats_data = collector.get_stats()
+    provider_comparison = collector.get_provider_comparison()
+
+    if output_json:
+        import json
+
+        output = {
+            "stats": stats_data,
+            "provider_comparison": provider_comparison,
+        }
+        print(json.dumps(output, indent=2))
+        return
+
+    from rich.table import Table
+
+    # Overall stats
+    console.print("\n[bold cyan]Overall Statistics[/bold cyan]")
+    stats_table = Table(show_header=True, header_style="bold cyan")
+    stats_table.add_column("Metric", style="cyan", width=30)
+    stats_table.add_column("Value", style="green", width=20)
+
+    stats_table.add_row("Total Queries", str(stats_data["total_queries"]))
+    stats_table.add_row(
+        "Cache Hit Rate",
+        f"{stats_data['cache_hit_rate']:.1%}"
+        if stats_data["cache_hit_rate"] > 0
+        else "0%",
+    )
+    stats_table.add_row("API Calls", str(stats_data["api_calls"]))
+    stats_table.add_row(
+        "Avg Execution Time",
+        f"{stats_data['execution_time_avg']:.3f}s"
+        if stats_data["execution_time_avg"] > 0
+        else "N/A",
+    )
+    stats_table.add_row("Errors", str(stats_data["errors"]))
+
+    console.print(stats_table)
+
+    # Provider comparison
+    if provider_comparison:
+        console.print("\n[bold cyan]Provider Performance Comparison[/bold cyan]")
+        provider_table = Table(show_header=True, header_style="bold cyan")
+        provider_table.add_column("Provider", style="cyan", width=20)
+        provider_table.add_column("Queries", style="green", width=10)
+        provider_table.add_column("API Calls", style="yellow", width=10)
+        provider_table.add_column("Avg Time", style="magenta", width=12)
+        provider_table.add_column("Errors", style="red", width=8)
+
+        for provider_data in provider_comparison:
+            provider_table.add_row(
+                provider_data["provider"],
+                str(provider_data["queries"]),
+                str(provider_data["api_calls"]),
+                f"{provider_data['avg_time']:.3f}s"
+                if provider_data["avg_time"] > 0
+                else "N/A",
+                str(provider_data.get("errors", 0)),
+            )
+
+        console.print(provider_table)
+    else:
+        console.print("\n[yellow]No provider statistics available yet.[/yellow]")
 
 
 def main():

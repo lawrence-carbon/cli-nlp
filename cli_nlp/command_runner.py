@@ -13,13 +13,23 @@ from rich.panel import Panel
 from cli_nlp.cache_manager import CacheManager
 from cli_nlp.config_manager import ConfigManager
 from cli_nlp.context_manager import ContextManager
-from cli_nlp.exceptions import APIError, CommandExecutionError, QTCError, ValidationError
+from cli_nlp.exceptions import (
+    APIError,
+    QTCError,
+    ValidationError,
+)
 from cli_nlp.history_manager import HistoryManager
 from cli_nlp.logger import get_logger
+from cli_nlp.metrics import MetricsCollector
 from cli_nlp.models import CommandResponse, MultiCommandResponse, SafetyLevel
 from cli_nlp.retry import RetryConfig, retry_with_backoff
 from cli_nlp.utils import console, copy_to_clipboard
-from cli_nlp.validation import validate_max_tokens, validate_model_name, validate_query, validate_temperature
+from cli_nlp.validation import (
+    validate_max_tokens,
+    validate_model_name,
+    validate_query,
+    validate_temperature,
+)
 
 logger = get_logger(__name__)
 
@@ -77,6 +87,7 @@ Examples:
             ttl_seconds=config_manager.get("cache_ttl_seconds", 86400)
         )
         self.context_manager = context_manager or ContextManager()
+        self.metrics_collector = MetricsCollector()
 
     @staticmethod
     def _coerce_bool(value: Any) -> bool:
@@ -281,22 +292,37 @@ Examples:
 
         logger.info(f"Generating command for query: {query[:100]}...")
 
+        import time
+
+        start_time = time.time()
+
         # Setup LiteLLM API key
         try:
             self._setup_litellm_api_key()
         except Exception as e:
             logger.error(f"Failed to setup API key: {e}", exc_info=True)
+            self.metrics_collector.record_error(provider=model)
             raise APIError(
                 "Failed to configure API key. Please run 'qtc config providers set' to configure a provider.",
                 details=str(e),
             ) from e
 
         # Check cache first
+        cached = False
         if use_cache:
             try:
                 cached_response = self.cache_manager.get(query, model=model)
                 if cached_response:
                     logger.debug("Using cached response")
+                    cached = True
+                    execution_time = time.time() - start_time
+                    provider = self.config_manager.get_active_provider()
+                    self.metrics_collector.record_query(
+                        cached=True,
+                        execution_time=execution_time,
+                        provider=provider,
+                        model=model,
+                    )
                     return cached_response
             except Exception as e:
                 logger.warning(f"Cache lookup failed, continuing without cache: {e}")
@@ -316,7 +342,9 @@ Examples:
         try:
             import litellm
         except ImportError:
-            error_msg = "LiteLLM package not installed. Please install it with: poetry install"
+            error_msg = (
+                "LiteLLM package not installed. Please install it with: poetry install"
+            )
             logger.error(error_msg)
             raise QTCError(error_msg) from None
 
@@ -454,22 +482,41 @@ Examples:
             with console.status("[bold green]Generating command..."):
                 # Try structured output first
                 try:
-                    return _call_api_with_structured_output()
+                    command_response = _call_api_with_structured_output()
                 except (json.JSONDecodeError, KeyError, ValueError) as e:
                     logger.debug(f"Structured output failed, trying JSON mode: {e}")
                     # Fallback to JSON mode
                     try:
-                        return _call_api_with_json_mode()
+                        command_response = _call_api_with_json_mode()
                     except (json.JSONDecodeError, KeyError, ValueError) as e:
                         logger.debug(f"JSON mode failed, trying fallback: {e}")
                         # Final fallback
-                        return _call_api_fallback()
+                        command_response = _call_api_fallback()
+
+            # Record metrics
+            execution_time = time.time() - start_time
+            provider = self.config_manager.get_active_provider()
+            self.metrics_collector.record_query(
+                cached=cached,
+                execution_time=execution_time,
+                provider=provider,
+                model=model,
+            )
+
+            return command_response
 
         except APIError:
+            # Record error metrics
+            execution_time = time.time() - start_time
+            provider = self.config_manager.get_active_provider()
+            self.metrics_collector.record_error(provider=provider or model)
             # Re-raise API errors as-is
             raise
         except json.JSONDecodeError as e:
             logger.error(f"Failed to parse JSON response: {e}", exc_info=True)
+            execution_time = time.time() - start_time
+            provider = self.config_manager.get_active_provider()
+            self.metrics_collector.record_error(provider=provider or model)
             raise APIError(
                 "Invalid JSON response from API. The model may have returned malformed data.",
                 provider=model,
@@ -477,7 +524,9 @@ Examples:
             ) from e
         except Exception as e:
             logger.error(f"Unexpected error generating command: {e}", exc_info=True)
+            execution_time = time.time() - start_time
             active_provider = self.config_manager.get_active_provider()
+            self.metrics_collector.record_error(provider=active_provider or model)
             raise APIError(
                 f"Failed to generate command: {e}",
                 provider=active_provider or model,
@@ -739,6 +788,8 @@ If it's a simple single command, return it as a single-item array."""
         refine: bool = False,
         alternatives: bool = False,
         edit: bool = False,
+        dry_run: bool = False,
+        output_json: bool = False,
     ):
         """
         Generate and optionally execute a command.
@@ -902,6 +953,29 @@ If it's a simple single command, return it as a single-item array."""
             finally:
                 os.unlink(temp_path)
 
+        # Handle JSON output
+        if output_json:
+            import json
+
+            output_data = {
+                "command": command,
+                "is_safe": command_response.is_safe,
+                "safety_level": command_response.safety_level.value,
+                "explanation": command_response.explanation,
+                "dry_run": dry_run,
+            }
+            print(json.dumps(output_data, indent=2))
+            # Save to history even if JSON output
+            self.history_manager.add_entry(
+                query=query,
+                command=command,
+                is_safe=command_response.is_safe,
+                safety_level=command_response.safety_level,
+                explanation=command_response.explanation,
+                executed=False,
+            )
+            return
+
         # Determine panel style based on safety
         if command_response.is_safe:
             panel_style = "green"
@@ -918,6 +992,12 @@ If it's a simple single command, return it as a single-item array."""
         # Show explanation if available
         if command_response.explanation:
             console.print(f"[dim]{command_response.explanation}[/dim]")
+
+        # Show dry-run message
+        if dry_run:
+            console.print(
+                "\n[bold cyan]🔍 DRY RUN MODE: Command will NOT be executed[/bold cyan]"
+            )
 
         # Show safety warning for modifying commands
         if not command_response.is_safe and not force:
@@ -945,8 +1025,8 @@ If it's a simple single command, return it as a single-item array."""
                     "[yellow]Warning: Could not copy to clipboard. Install xclip or xsel (e.g., 'sudo apt install xclip' or 'sudo apt install xsel').[/yellow]"
                 )
 
-        # Execute if requested
-        if execute:
+        # Execute if requested (and not dry-run)
+        if execute and not dry_run:
             # Additional safety check for modifying commands
             if not command_response.is_safe and not force:
                 console.print(
@@ -973,6 +1053,8 @@ If it's a simple single command, return it as a single-item array."""
                     executed=True,
                     return_code=return_code,
                 )
+                # Record metrics
+                self.metrics_collector.record_command_execution(executed=True)
                 # Exit with the command's return code
                 sys.exit(result.returncode)
             except KeyboardInterrupt:
@@ -1011,6 +1093,8 @@ If it's a simple single command, return it as a single-item array."""
                 explanation=command_response.explanation,
                 executed=False,
             )
+            # Record metrics
+            self.metrics_collector.record_command_execution(executed=False)
 
     def run_batch(self, queries_file: str, model: str | None = None):
         """

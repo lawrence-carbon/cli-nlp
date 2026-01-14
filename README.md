@@ -15,10 +15,15 @@ A command-line utility that converts natural language requests into shell comman
 - ⚡ Fast responses using GPT-4o-mini (or any OpenAI model)
 - 🔧 Execute commands directly with `--execute` flag
 - 📋 Copy commands to clipboard with `--copy` flag
+- 🔍 Dry-run mode to preview commands without executing
+- 📊 Metrics and statistics tracking
+- 🎯 Developer-friendly flags (`--verbose`, `--debug`, `--json`)
 - ⚙️ JSON config file for API keys and customization
-- 🎨 Beautiful CLI with Rich formatting (via Typer)
+- 🎨 Beautiful CLI with Rich formatting
 - 📦 Poetry-based dependency management
 - 🎯 Simple and intuitive interface
+- 🔄 Automatic retry with exponential backoff
+- 📝 Comprehensive logging and error handling
 
 ## Installation
 
@@ -283,11 +288,30 @@ Run `qtc config providers set` to see all available providers.
 
 ## Options
 
+### Command Execution
 - `--execute, -e`: Execute the generated command automatically
 - `--force, -f`: Bypass safety check for modifying commands (use with caution)
 - `--copy, -c`: Copy command to clipboard (requires xclip or xsel)
+- `--dry-run`: Preview command without executing
+- `--refine, -r`: Enter refinement mode to improve the command
+- `--alternatives, -a`: Show alternative command options
+- `--edit`: Edit command in your default editor before execution
+
+### Developer Options
+- `--verbose, -v`: Enable verbose output (DEBUG level logging)
+- `--debug`: Enable debug mode (more verbose than --verbose)
+- `--log-file PATH`: Write logs to file
+- `--json`: Output in JSON format (useful for scripting)
+- `--version`: Show version information
+
+### Configuration
 - `config providers`: Manage LLM provider configurations (subcommand)
 - `--help, -h`: Show help message
+
+### Metrics & Statistics
+- `qtc metrics show`: Show current metrics (queries, cache hits, API calls, etc.)
+- `qtc metrics reset`: Reset all metrics
+- `qtc stats`: Show performance statistics and provider comparison
 
 ## Safety Features
 
