@@ -6,7 +6,11 @@ import os
 from datetime import datetime
 from pathlib import Path
 
+from cli_nlp.exceptions import CacheError
+from cli_nlp.logger import get_logger
 from cli_nlp.models import CommandResponse, SafetyLevel
+
+logger = get_logger(__name__)
 
 
 class CacheEntry:
@@ -98,20 +102,49 @@ class CacheManager:
     def _load_cache(self):
         """Load cache from file."""
         if not self.cache_path.exists():
+            logger.debug(f"Cache file does not exist: {self.cache_path}")
             self._cache = {}
             return
 
         try:
-            with open(self.cache_path) as f:
+            with open(self.cache_path, encoding="utf-8") as f:
                 data = json.load(f)
                 # Load entries and filter expired ones
+                loaded_count = 0
                 for key, entry_data in data.items():
-                    entry = CacheEntry.from_dict(entry_data)
-                    if not entry.is_expired():
-                        self._cache[key] = entry
-        except (json.JSONDecodeError, KeyError, ValueError):
-            # If cache file is corrupted, start fresh
+                    try:
+                        entry = CacheEntry.from_dict(entry_data)
+                        if not entry.is_expired():
+                            self._cache[key] = entry
+                            loaded_count += 1
+                    except (KeyError, ValueError) as e:
+                        logger.warning(
+                            f"Skipping invalid cache entry '{key}': {e}",
+                            exc_info=True,
+                        )
+                        continue
+
+                logger.debug(
+                    f"Loaded {loaded_count} cache entries from {self.cache_path}"
+                )
+        except json.JSONDecodeError as e:
+            logger.warning(
+                f"Cache file corrupted, starting fresh: {e}",
+                exc_info=True,
+            )
+            # Backup corrupted cache file
+            backup_path = self.cache_path.with_suffix(".json.bak")
+            try:
+                self.cache_path.rename(backup_path)
+                logger.debug(f"Backed up corrupted cache to {backup_path}")
+            except Exception as backup_error:
+                logger.warning(f"Could not backup corrupted cache: {backup_error}")
             self._cache = {}
+        except (OSError, PermissionError) as e:
+            raise CacheError(
+                f"Failed to read cache file: {e}",
+                cache_path=str(self.cache_path),
+            ) from e
 
     def _save_cache(self):
         """Save cache to file."""
@@ -130,13 +163,47 @@ class CacheManager:
                     valid_cache.items(),
                     key=lambda x: x[1]["timestamp"],
                 )
+                removed_count = len(valid_cache) - self.max_size
                 valid_cache = dict(sorted_entries[-self.max_size :])
+                logger.debug(f"Cache size limit reached, removed {removed_count} oldest entries")
 
-            with open(self.cache_path, "w") as f:
-                json.dump(valid_cache, f, indent=2)
-        except Exception:
-            # Silently fail if we can't save cache
-            pass
+            # Ensure cache directory exists
+            self.cache_path.parent.mkdir(parents=True, exist_ok=True)
+
+            # Write cache file atomically using a temporary file
+            temp_path = self.cache_path.with_suffix(".json.tmp")
+            try:
+                with open(temp_path, "w", encoding="utf-8") as f:
+                    json.dump(valid_cache, f, indent=2)
+                temp_path.replace(self.cache_path)
+                logger.debug(f"Saved {len(valid_cache)} cache entries to {self.cache_path}")
+            except Exception as write_error:
+                # Clean up temp file on error
+                if temp_path.exists():
+                    try:
+                        temp_path.unlink()
+                    except Exception:
+                        pass
+                raise
+
+        except (OSError, PermissionError) as e:
+            logger.error(
+                f"Failed to save cache file: {e}",
+                exc_info=True,
+            )
+            raise CacheError(
+                f"Failed to save cache file: {e}",
+                cache_path=str(self.cache_path),
+            ) from e
+        except Exception as e:
+            logger.error(
+                f"Unexpected error saving cache: {e}",
+                exc_info=True,
+            )
+            raise CacheError(
+                f"Unexpected error saving cache: {e}",
+                cache_path=str(self.cache_path),
+            ) from e
 
     def get(
         self,
@@ -149,16 +216,23 @@ class CacheManager:
 
         if entry is None:
             self._stats["misses"] += 1
+            logger.debug(f"Cache miss for query: {query[:50]}...")
             return None
 
         if entry.is_expired():
             # Remove expired entry
+            logger.debug(f"Cache entry expired for query: {query[:50]}...")
             del self._cache[cache_key]
-            self._save_cache()
+            try:
+                self._save_cache()
+            except CacheError:
+                # Log but don't fail on cache save errors during get
+                logger.warning("Failed to save cache after removing expired entry")
             self._stats["misses"] += 1
             return None
 
         self._stats["hits"] += 1
+        logger.debug(f"Cache hit for query: {query[:50]}...")
         return entry.to_command_response()
 
     def set(
@@ -182,6 +256,7 @@ class CacheManager:
         )
 
         self._cache[cache_key] = entry
+        logger.debug(f"Caching command for query: {query[:50]}...")
 
         # Limit cache size
         if len(self._cache) > self.max_size:
@@ -190,13 +265,17 @@ class CacheManager:
                 self._cache.items(),
                 key=lambda x: x[1].timestamp,
             )
+            removed_count = len(self._cache) - self.max_size
             self._cache = dict(sorted_entries[-self.max_size :])
+            logger.debug(f"Cache size limit reached, removed {removed_count} oldest entries")
 
         self._save_cache()
 
     def clear(self):
         """Clear all cache entries."""
+        logger.info("Clearing cache")
         self._cache = {}
+        self._stats = {"hits": 0, "misses": 0}
         self._save_cache()
 
     def get_stats(self) -> dict[str, int]:

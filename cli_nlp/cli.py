@@ -2,6 +2,7 @@
 
 import os
 import sys
+from pathlib import Path
 
 import click
 from click.exceptions import UsageError
@@ -11,7 +12,9 @@ from cli_nlp.command_runner import CommandRunner
 from cli_nlp.completer import QueryCompleter
 from cli_nlp.config_manager import ConfigManager
 from cli_nlp.context_manager import ContextManager
+from cli_nlp.exceptions import QTCError
 from cli_nlp.history_manager import HistoryManager
+from cli_nlp.logger import setup_logging
 from cli_nlp.template_manager import TemplateManager
 from cli_nlp.utils import console
 
@@ -99,9 +102,36 @@ KNOWN_COMMANDS = ["history", "cache", "batch", "template", "config"]
 @click.option(
     "--edit", is_flag=True, help="Edit command in your default editor before execution"
 )
+@click.option(
+    "--verbose",
+    "-v",
+    is_flag=True,
+    help="Enable verbose output (DEBUG level logging)",
+)
+@click.option(
+    "--log-file",
+    type=click.Path(path_type=Path),
+    help="Write logs to file",
+)
+@click.option(
+    "--version",
+    is_flag=True,
+    help="Show version information",
+)
 @click.pass_context
-def cli(ctx, execute, copy, force, refine, alternatives, edit):
+def cli(ctx, execute, copy, force, refine, alternatives, edit, verbose, log_file, version):
     """Convert natural language to shell commands using LLM providers."""
+    # Show version and exit
+    if version:
+        from cli_nlp import __version__
+
+        console.print(f"QTC version {__version__}")
+        sys.exit(0)
+
+    # Setup logging
+    log_level = "DEBUG" if verbose else "INFO"
+    setup_logging(level=log_level, log_file=log_file, verbose=verbose)
+
     # If a subcommand was invoked, let it handle it
     if ctx.invoked_subcommand is not None:
         return
@@ -120,15 +150,31 @@ def cli(ctx, execute, copy, force, refine, alternatives, edit):
             console.print("[yellow]No query provided. Exiting.[/yellow]")
             sys.exit(0)
 
-    command_runner.run(
-        query_str,
-        execute=execute,
-        copy=copy,
-        force=force,
-        refine=refine,
-        alternatives=alternatives,
-        edit=edit,
-    )
+    try:
+        command_runner.run(
+            query_str,
+            execute=execute,
+            copy=copy,
+            force=force,
+            refine=refine,
+            alternatives=alternatives,
+            edit=edit,
+        )
+    except QTCError as e:
+        console.print(f"[red]Error:[/red] {e.message}")
+        if e.details:
+            console.print(f"[yellow]{e.details}[/yellow]")
+        sys.exit(1)
+    except KeyboardInterrupt:
+        console.print("\n[yellow]Interrupted by user.[/yellow]")
+        sys.exit(130)
+    except Exception as e:
+        console.print(f"[red]Unexpected error:[/red] {e}")
+        if verbose:
+            import traceback
+
+            console.print(traceback.format_exc())
+        sys.exit(1)
 
 
 # Config subcommand group

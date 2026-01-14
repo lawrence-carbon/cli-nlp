@@ -4,7 +4,12 @@ import json
 import os
 from pathlib import Path
 
+from cli_nlp.exceptions import ConfigurationError
+from cli_nlp.logger import get_logger
 from cli_nlp.utils import console
+from cli_nlp.validation import validate_config_structure
+
+logger = get_logger(__name__)
 
 
 class ConfigManager:
@@ -42,6 +47,7 @@ class ConfigManager:
 
         # Check if this is an old config format
         if "openai_api_key" in config and "providers" not in config:
+            logger.info("Migrating config to new multi-provider format")
             console.print(
                 "[yellow]Migrating config to new multi-provider format...[/yellow]"
             )
@@ -67,8 +73,10 @@ class ConfigManager:
             # Save migrated config
             try:
                 self.save(new_config)
+                logger.info("Config migration completed successfully")
                 console.print("[green]Config migration completed.[/green]")
             except Exception as e:
+                logger.warning(f"Could not save migrated config: {e}", exc_info=True)
                 console.print(
                     f"[yellow]Warning: Could not save migrated config: {e}[/yellow]"
                 )
@@ -82,11 +90,14 @@ class ConfigManager:
     def load(self) -> dict:
         """Load configuration from JSON file."""
         if not self.config_path.exists():
+            logger.debug(f"Config file does not exist, using defaults: {self.config_path}")
             return self.DEFAULT_CONFIG.copy()
 
         try:
-            with open(self.config_path) as f:
+            with open(self.config_path, encoding="utf-8") as f:
                 config = json.load(f)
+
+            logger.debug(f"Loaded config from {self.config_path}")
 
             # Migrate old config format if needed
             config = self._migrate_old_config(config)
@@ -99,30 +110,87 @@ class ConfigManager:
             if "active_model" not in config:
                 config["active_model"] = config.get("default_model", "gpt-4o-mini")
 
+            # Validate config structure
+            try:
+                validate_config_structure(config)
+            except Exception as e:
+                logger.warning(f"Config validation warning: {e}")
+                # Don't fail on validation warnings, but log them
+
             return config
         except json.JSONDecodeError as e:
-            console.print(f"[red]Error: Invalid JSON in config file: {e}[/red]")
-            console.print(f"Config file location: {self.config_path}")
+            error_msg = f"Invalid JSON in config file: {e}"
+            logger.error(error_msg, exc_info=True)
+            raise ConfigurationError(
+                error_msg,
+                config_path=str(self.config_path),
+            ) from e
+        except ConfigurationError:
+            # Re-raise configuration errors as-is
             raise
         except Exception as e:
-            console.print(f"[red]Error reading config file: {e}[/red]")
-            raise
+            error_msg = f"Error reading config file: {e}"
+            logger.error(error_msg, exc_info=True)
+            raise ConfigurationError(
+                error_msg,
+                config_path=str(self.config_path),
+            ) from e
 
     def save(self, config: dict | None = None) -> bool:
         """Save configuration to JSON file."""
         if config is None:
             config = self.load()
 
+        # Validate config before saving
         try:
-            with open(self.config_path, "w") as f:
-                json.dump(config, f, indent=2)
-
-            # Set restrictive permissions (read/write for user only)
-            os.chmod(self.config_path, 0o600)
-            return True
+            validate_config_structure(config)
         except Exception as e:
-            console.print(f"[red]Error saving config file: {e}[/red]")
-            return False
+            logger.error(f"Config validation failed: {e}")
+            raise ConfigurationError(
+                f"Invalid configuration: {e}",
+                config_path=str(self.config_path),
+            ) from e
+
+        try:
+            # Ensure config directory exists
+            self.config_path.parent.mkdir(parents=True, exist_ok=True)
+
+            # Write config file atomically using a temporary file
+            temp_path = self.config_path.with_suffix(".json.tmp")
+            try:
+                with open(temp_path, "w", encoding="utf-8") as f:
+                    json.dump(config, f, indent=2)
+
+                # Set restrictive permissions (read/write for user only)
+                os.chmod(temp_path, 0o600)
+
+                # Atomic rename
+                temp_path.replace(self.config_path)
+                logger.debug(f"Saved config to {self.config_path}")
+                return True
+            except Exception as write_error:
+                # Clean up temp file on error
+                if temp_path.exists():
+                    try:
+                        temp_path.unlink()
+                    except Exception:
+                        pass
+                raise
+
+        except (OSError, PermissionError) as e:
+            error_msg = f"Failed to save config file: {e}"
+            logger.error(error_msg, exc_info=True)
+            raise ConfigurationError(
+                error_msg,
+                config_path=str(self.config_path),
+            ) from e
+        except Exception as e:
+            error_msg = f"Unexpected error saving config: {e}"
+            logger.error(error_msg, exc_info=True)
+            raise ConfigurationError(
+                error_msg,
+                config_path=str(self.config_path),
+            ) from e
 
     def create_default(self) -> bool:
         """Create a default config file with template."""

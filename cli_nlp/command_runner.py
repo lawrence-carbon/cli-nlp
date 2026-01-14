@@ -13,9 +13,15 @@ from rich.panel import Panel
 from cli_nlp.cache_manager import CacheManager
 from cli_nlp.config_manager import ConfigManager
 from cli_nlp.context_manager import ContextManager
+from cli_nlp.exceptions import APIError, CommandExecutionError, QTCError, ValidationError
 from cli_nlp.history_manager import HistoryManager
+from cli_nlp.logger import get_logger
 from cli_nlp.models import CommandResponse, MultiCommandResponse, SafetyLevel
+from cli_nlp.retry import RetryConfig, retry_with_backoff
 from cli_nlp.utils import console, copy_to_clipboard
+from cli_nlp.validation import validate_max_tokens, validate_model_name, validate_query, validate_temperature
+
+logger = get_logger(__name__)
 
 
 class CommandRunner:
@@ -249,162 +255,234 @@ Examples:
 
         Returns:
             CommandResponse object containing command and safety information
-        """
-        # Setup LiteLLM API key
-        self._setup_litellm_api_key()
 
-        # Use provided values or fall back to config or defaults
-        model = model or self.config_manager.get_active_model()
-        temperature = (
-            temperature
-            if temperature is not None
-            else self.config_manager.get("temperature", 0.3)
-        )
-        max_tokens = (
-            max_tokens
-            if max_tokens is not None
-            else self.config_manager.get("max_tokens", 200)
-        )
+        Raises:
+            ValidationError: If input validation fails
+            APIError: If API call fails
+            QTCError: For other errors
+        """
+        # Validate inputs
+        try:
+            query = validate_query(query)
+            model = validate_model_name(model or self.config_manager.get_active_model())
+            temperature = validate_temperature(
+                temperature
+                if temperature is not None
+                else self.config_manager.get("temperature", 0.3)
+            )
+            max_tokens = validate_max_tokens(
+                max_tokens
+                if max_tokens is not None
+                else self.config_manager.get("max_tokens", 200)
+            )
+        except ValidationError as e:
+            logger.error(f"Validation error: {e}")
+            raise
+
+        logger.info(f"Generating command for query: {query[:100]}...")
+
+        # Setup LiteLLM API key
+        try:
+            self._setup_litellm_api_key()
+        except Exception as e:
+            logger.error(f"Failed to setup API key: {e}", exc_info=True)
+            raise APIError(
+                "Failed to configure API key. Please run 'qtc config providers set' to configure a provider.",
+                details=str(e),
+            ) from e
 
         # Check cache first
         if use_cache:
-            cached_response = self.cache_manager.get(query, model=model)
-            if cached_response:
-                return cached_response
+            try:
+                cached_response = self.cache_manager.get(query, model=model)
+                if cached_response:
+                    logger.debug("Using cached response")
+                    return cached_response
+            except Exception as e:
+                logger.warning(f"Cache lookup failed, continuing without cache: {e}")
 
         # Build context-aware prompt
-        context_str = self.context_manager.build_context_string(
-            include_git=self.config_manager.get("include_git_context", True)
-        )
-        context_prompt = (
-            f"{context_str}\n\nUser request: {query}" if context_str else query
-        )
+        try:
+            context_str = self.context_manager.build_context_string(
+                include_git=self.config_manager.get("include_git_context", True)
+            )
+            context_prompt = (
+                f"{context_str}\n\nUser request: {query}" if context_str else query
+            )
+        except Exception as e:
+            logger.warning(f"Failed to build context, using query only: {e}")
+            context_prompt = query
 
         try:
             import litellm
         except ImportError:
-            console.print("[red]Error: LiteLLM package not installed.[/red]")
-            console.print("[yellow]Please install it with: poetry install[/yellow]")
-            sys.exit(1)
+            error_msg = "LiteLLM package not installed. Please install it with: poetry install"
+            logger.error(error_msg)
+            raise QTCError(error_msg) from None
+
+        # Get retry config from config manager
+        retry_config = RetryConfig(
+            max_attempts=self.config_manager.get("retry_max_attempts", 3),
+            initial_delay=self.config_manager.get("retry_initial_delay", 1.0),
+            max_delay=self.config_manager.get("retry_max_delay", 60.0),
+        )
+
+        @retry_with_backoff(retry_config)
+        def _call_api_with_structured_output() -> CommandResponse:
+            """Call API with structured JSON schema output."""
+            json_schema = CommandResponse.model_json_schema()
+            logger.debug(f"Calling API with structured output (model: {model})")
+
+            response = litellm.completion(
+                model=model,
+                messages=[
+                    {"role": "system", "content": self.SYSTEM_PROMPT},
+                    {"role": "user", "content": context_prompt},
+                ],
+                response_format={
+                    "type": "json_schema",
+                    "json_schema": json_schema,
+                    "strict": True,
+                },
+                temperature=temperature,
+                max_tokens=max_tokens,
+            )
+
+            if not response.choices or not response.choices[0].message.content:
+                raise APIError("Empty response from API", provider=model)
+
+            content = response.choices[0].message.content.strip()
+            data = json.loads(content)
+            command_response = self._build_command_response(data)
+
+            # Cache the response
+            if use_cache:
+                try:
+                    self.cache_manager.set(query, command_response, model=model)
+                except Exception as e:
+                    logger.warning(f"Failed to cache response: {e}")
+
+            return command_response
+
+        @retry_with_backoff(retry_config)
+        def _call_api_with_json_mode() -> CommandResponse:
+            """Call API with JSON mode fallback."""
+            system_prompt_with_json = (
+                self.SYSTEM_PROMPT
+                + '\n\nYou must respond with a valid JSON object matching this schema: {"command": "string", "is_safe": boolean, "safety_level": "safe" or "modifying", "explanation": "string (optional)"}'
+            )
+            logger.debug(f"Calling API with JSON mode (model: {model})")
+
+            response = litellm.completion(
+                model=model,
+                messages=[
+                    {"role": "system", "content": system_prompt_with_json},
+                    {"role": "user", "content": context_prompt},
+                ],
+                response_format={"type": "json_object"},
+                temperature=temperature,
+                max_tokens=max_tokens,
+            )
+
+            if not response.choices or not response.choices[0].message.content:
+                raise APIError("Empty response from API", provider=model)
+
+            content = response.choices[0].message.content.strip()
+            data = json.loads(content)
+            command_response = self._build_command_response(data)
+
+            # Cache the response
+            if use_cache:
+                try:
+                    self.cache_manager.set(query, command_response, model=model)
+                except Exception as e:
+                    logger.warning(f"Failed to cache response: {e}")
+
+            return command_response
+
+        @retry_with_backoff(retry_config)
+        def _call_api_fallback() -> CommandResponse:
+            """Call API with final fallback (no structured output)."""
+            system_prompt_fallback = (
+                self.SYSTEM_PROMPT
+                + '\n\nYou must respond with a valid JSON object matching this schema: {"command": "string", "is_safe": boolean, "safety_level": "safe" or "modifying", "explanation": "string (optional)"}'
+            )
+            logger.debug(f"Calling API with fallback mode (model: {model})")
+
+            response = litellm.completion(
+                model=model,
+                messages=[
+                    {"role": "system", "content": system_prompt_fallback},
+                    {"role": "user", "content": context_prompt},
+                ],
+                temperature=temperature,
+                max_tokens=max_tokens,
+            )
+
+            if not response.choices or not response.choices[0].message.content:
+                raise APIError("Empty response from API", provider=model)
+
+            content = response.choices[0].message.content.strip()
+
+            # Try to extract JSON from response if it's wrapped
+            if "```json" in content:
+                import re
+
+                json_match = re.search(r"```json\n(.*?)\n```", content, re.DOTALL)
+                if json_match:
+                    content = json_match.group(1)
+            elif "```" in content:
+                import re
+
+                json_match = re.search(r"```\n(.*?)\n```", content, re.DOTALL)
+                if json_match:
+                    content = json_match.group(1)
+
+            data = json.loads(content)
+            command_response = self._build_command_response(data)
+
+            # Cache the response
+            if use_cache:
+                try:
+                    self.cache_manager.set(query, command_response, model=model)
+                except Exception as e:
+                    logger.warning(f"Failed to cache response: {e}")
+
+            return command_response
 
         try:
             with console.status("[bold green]Generating command..."):
-                # Try Pydantic structured output first (for models that support it)
+                # Try structured output first
                 try:
-                    # Get JSON schema from Pydantic model
-                    json_schema = CommandResponse.model_json_schema()
-
-                    # Try using JSON schema structured output
-                    response = litellm.completion(
-                        model=model,
-                        messages=[
-                            {"role": "system", "content": self.SYSTEM_PROMPT},
-                            {"role": "user", "content": context_prompt},
-                        ],
-                        response_format={
-                            "type": "json_schema",
-                            "json_schema": json_schema,
-                            "strict": True,
-                        },
-                        temperature=temperature,
-                        max_tokens=max_tokens,
-                    )
-
-                    content = response.choices[0].message.content.strip()
-                    data = json.loads(content)
-
-                    # Create CommandResponse from JSON
-                    command_response = self._build_command_response(data)
-                    # Cache the response
-                    if use_cache:
-                        self.cache_manager.set(query, command_response, model=model)
-
-                    return command_response
-                except Exception:
-                    # Fallback: Use JSON mode (requires "json" in prompt)
+                    return _call_api_with_structured_output()
+                except (json.JSONDecodeError, KeyError, ValueError) as e:
+                    logger.debug(f"Structured output failed, trying JSON mode: {e}")
+                    # Fallback to JSON mode
                     try:
-                        system_prompt_with_json = (
-                            self.SYSTEM_PROMPT
-                            + '\n\nYou must respond with a valid JSON object matching this schema: {"command": "string", "is_safe": boolean, "safety_level": "safe" or "modifying", "explanation": "string (optional)"}'
-                        )
+                        return _call_api_with_json_mode()
+                    except (json.JSONDecodeError, KeyError, ValueError) as e:
+                        logger.debug(f"JSON mode failed, trying fallback: {e}")
+                        # Final fallback
+                        return _call_api_fallback()
 
-                        response = litellm.completion(
-                            model=model,
-                            messages=[
-                                {"role": "system", "content": system_prompt_with_json},
-                                {"role": "user", "content": context_prompt},
-                            ],
-                            response_format={"type": "json_object"},
-                            temperature=temperature,
-                            max_tokens=max_tokens,
-                        )
-
-                        content = response.choices[0].message.content.strip()
-                        data = json.loads(content)
-
-                        # Create CommandResponse from JSON
-                        command_response = self._build_command_response(data)
-                        # Cache the response
-                        if use_cache:
-                            self.cache_manager.set(query, command_response, model=model)
-
-                        return command_response
-                    except Exception:
-                        # Final fallback: No structured output
-                        response = litellm.completion(
-                            model=model,
-                            messages=[
-                                {
-                                    "role": "system",
-                                    "content": self.SYSTEM_PROMPT
-                                    + '\n\nYou must respond with a valid JSON object matching this schema: {"command": "string", "is_safe": boolean, "safety_level": "safe" or "modifying", "explanation": "string (optional)"}',
-                                },
-                                {"role": "user", "content": context_prompt},
-                            ],
-                            temperature=temperature,
-                            max_tokens=max_tokens,
-                        )
-
-                        content = response.choices[0].message.content.strip()
-                        # Try to extract JSON from response if it's wrapped
-                        if "```json" in content:
-                            import re
-
-                            json_match = re.search(
-                                r"```json\n(.*?)\n```", content, re.DOTALL
-                            )
-                            if json_match:
-                                content = json_match.group(1)
-                        elif "```" in content:
-                            import re
-
-                            json_match = re.search(
-                                r"```\n(.*?)\n```", content, re.DOTALL
-                            )
-                            if json_match:
-                                content = json_match.group(1)
-
-                        data = json.loads(content)
-
-                        # Create CommandResponse from JSON
-                        command_response = self._build_command_response(data)
-                        # Cache the response
-                        if use_cache:
-                            self.cache_manager.set(query, command_response, model=model)
-
-                        return command_response
-
+        except APIError:
+            # Re-raise API errors as-is
+            raise
+        except json.JSONDecodeError as e:
+            logger.error(f"Failed to parse JSON response: {e}", exc_info=True)
+            raise APIError(
+                "Invalid JSON response from API. The model may have returned malformed data.",
+                provider=model,
+                details=str(e),
+            ) from e
         except Exception as e:
-            console.print(f"[red]Error generating command: {e}[/red]")
+            logger.error(f"Unexpected error generating command: {e}", exc_info=True)
             active_provider = self.config_manager.get_active_provider()
-            if active_provider:
-                console.print(
-                    f"[yellow]Active provider: {active_provider}, Model: {model}[/yellow]"
-                )
-            console.print(
-                "[yellow]Please check your API key and provider configuration.[/yellow]"
-            )
-            sys.exit(1)
+            raise APIError(
+                f"Failed to generate command: {e}",
+                provider=active_provider or model,
+                details=str(e),
+            ) from e
 
     def refine_command(
         self,
