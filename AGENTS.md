@@ -20,3 +20,8 @@ See `README.md` "Development" section and `.cursor/rules/project-context.mdc` fo
 - The `qtc` entry point that converts queries requires a configured LLM provider API key (e.g. `OPENAI_API_KEY`). All tests mock external calls, so tests run without any API key.
 - Config, cache, and history are stored in XDG directories (`~/.config/cli-nlp/`, `~/.cache/cli-nlp/`, `~/.local/share/cli-nlp/`). These are created on first use.
 - The `pyproject.toml` pins `ruff = "^0.1.0"` (an older version). Do not upgrade without checking for rule-set compatibility.
+
+### CI / PR workflow
+
+- Owner PRs are auto-approved by `.github/workflows/auto-approve-owner.yml` (checks `author_association == 'OWNER'`). External contributor PRs still require manual review.
+- This requires the repo setting **Settings → Actions → General → Workflow permissions → "Allow GitHub Actions to create and approve pull requests"** to be enabled.
