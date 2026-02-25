@@ -24,14 +24,45 @@ A command-line utility that converts natural language requests into shell comman
 
 ### Install from PyPI (Recommended)
 
+For isolated CLI installs (recommended), use `pipx`:
+
+```bash
+pipx install query-to-command
+```
+
+If you prefer `pip`:
+
 ```bash
 pip install query-to-command
 ```
+
+> [!IMPORTANT]
+> Install `query-to-command` (the package name), not `qtc`.
+> The `qtc` package on PyPI is a different project and may fail with errors like
+> `psycopg2` / `pg_config executable not found`.
 
 After installation, you can use the `qtc` command directly:
 
 ```bash
 qtc "list all python files in current directory"
+```
+
+### Troubleshooting Installation
+
+If you see installation errors mentioning `qtc-0.0.9`, `psycopg2`, or
+`pg_config executable not found`, you likely installed the wrong package.
+Remove it, then install `query-to-command`:
+
+```bash
+pipx uninstall qtc
+pipx install query-to-command
+```
+
+Or with `pip`:
+
+```bash
+pip uninstall qtc
+pip install query-to-command
 ```
 
 ### Install from Source
